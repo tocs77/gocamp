@@ -1,0 +1,43 @@
+package main
+
+import "fmt"
+
+type RedBankID string
+type BlueBankID string
+
+type RedBankAccount struct {
+	ID      RedBankID
+	Balance int
+}
+
+type BlueBankAccount struct {
+	ID      BlueBankID
+	Balance int
+}
+
+type BankAccount interface {
+	GetBalance() int
+}
+
+func (r *RedBankAccount) GetBalance() int {
+	return r.Balance
+}
+
+func (b *BlueBankAccount) GetBalance() int {
+	return b.Balance
+}
+
+func main() {
+	redBankAccount := RedBankAccount{
+		ID:      "1234567890",
+		Balance: 1000,
+	}
+	blueBankAccount := BlueBankAccount{
+		ID:      "1234567890",
+		Balance: 1000,
+	}
+
+	fmt.Println(redBankAccount.GetBalance())
+	fmt.Println(blueBankAccount.GetBalance())
+
+}

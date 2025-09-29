@@ -1,0 +1,25 @@
+package main
+
+import "fmt"
+
+func main() {
+	sequence := adder()
+	fmt.Println("sequence: ", sequence())
+	fmt.Println("sequence: ", sequence())
+	fmt.Println("sequence: ", sequence())
+
+	sequence2 := adder()
+	fmt.Println("sequence2: ", sequence2())
+	fmt.Println("sequence2: ", sequence2())
+
+}
+
+func adder() func() int {
+	i := 0
+	fmt.Println("i: ", i)
+	return func() int {
+		i++
+		fmt.Println("added i: ", i)
+		return i
+	}
+}
