@@ -1,0 +1,41 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+func main() {
+	if err := work(); err != nil {
+		fmt.Println(err)
+	}
+	if err := work2(); err != nil {
+		fmt.Println(err)
+		if err, ok := err.(*customError); ok {
+			fmt.Println(err.err)
+		}
+	}
+}
+
+type customError struct {
+	code    int
+	message string
+	err     error
+}
+
+func (e *customError) Error() string {
+	return fmt.Sprintf("customError %d: %s", e.code, e.message)
+}
+
+func work() error {
+	return &customError{code: 404, message: "Not Found"}
+}
+
+func work2() error {
+	err := work3()
+	return &customError{code: 500, message: "Internal Server Error", err: err}
+}
+
+func work3() error {
+	return errors.New("Database Error")
+}
