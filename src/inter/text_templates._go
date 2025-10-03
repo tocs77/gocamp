@@ -1,0 +1,75 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+	"text/template"
+)
+
+func main() {
+	// tmpl := template.New("Example")
+	// tmpl, err := tmpl.Parse("Welcome {{.name}}!")
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// data := map[string]string{
+	// 	"name": "John",
+	// }
+
+	// err = tmpl.Execute(os.Stdout, data)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Enter your name: ")
+	name, err := reader.ReadString('\n')
+	if err != nil {
+		panic(err)
+	}
+	name = strings.TrimSpace(name)
+
+	templates := map[string]string{
+		"welcome":      "Welcome {{.name}}!",
+		"notification": "Hello {{.name}}, you have a new notification {{.notification}}!",
+		"error":        "Sorry  something went wrong: {{.error}}",
+	}
+
+	parsedTemplates := make(map[string]*template.Template)
+	for name, tmpl := range templates {
+		parsedTemplates[name], err = template.New(name).Parse(tmpl)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for {
+		fmt.Println("\nMenu:")
+		fmt.Println("1. Welcome")
+		fmt.Println("2. Notification")
+		fmt.Println("3. Error")
+		fmt.Println("4. Exit")
+		fmt.Println("Enter your choice: ")
+		choice, err := reader.ReadString('\n')
+		if err != nil {
+			panic(err)
+		}
+		choice = strings.TrimSpace(choice)
+		switch choice {
+		case "1":
+			parsedTemplates["welcome"].Execute(os.Stdout, map[string]string{"name": name})
+		case "2":
+			parsedTemplates["notification"].Execute(os.Stdout, map[string]string{"name": name, "notification": "You have a new notification"})
+		case "3":
+			parsedTemplates["error"].Execute(os.Stdout, map[string]string{"error": "Database error"})
+		case "4":
+			return
+		default:
+			fmt.Println("Invalid choice")
+		}
+		fmt.Println("\n--------------------------------")
+	}
+}
