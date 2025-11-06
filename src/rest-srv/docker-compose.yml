@@ -1,0 +1,36 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "${EXPOSE_PORT}:${SERVER_PORT}"
+    volumes:
+      - ./:/app
+    # depends_on:
+    #   - db
+    #   - redis
+    restart: always
+    env_file:
+      - .env
+
+  # db:
+  #   image: mysql
+  #   restart: always
+  #   environment:
+  #     MYSQL_DATABASE: ambassador
+  #     MYSQL_PASSWORD: root
+  #     MYSQL_ROOT_PASSWORD: root
+  #   volumes:
+  #     - ./dbdata:/var/lib/mysql
+  # redis:
+  #   image: redis
+  #   restart: always
+  #   ports:
+  #     - "6379:6379"
+  # mailhog:
+  #   image: mailhog/mailhog
+  #   ports:
+  #     - "1025:1025"
+  #     - "8025:8025"
+  #   restart: always
+  #   env_file:
+  #     - .env
