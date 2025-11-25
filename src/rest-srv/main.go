@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"rest-srv/api/middlewares"
 	"strconv"
 
 	"golang.org/x/net/http2"
@@ -88,7 +89,7 @@ func main() {
 	server := &http.Server{
 		Addr:      fmt.Sprintf(":%d", serverPort),
 		TLSConfig: tlsConfig,
-		Handler:   mux,
+		Handler:   middlewares.SecurityHeaders(mux),
 	}
 
 	http2.ConfigureServer(server, &http2.Server{})
