@@ -89,7 +89,7 @@ func main() {
 	server := &http.Server{
 		Addr:      fmt.Sprintf(":%d", serverPort),
 		TLSConfig: tlsConfig,
-		Handler:   middlewares.SecurityHeaders(middlewares.Cors(mux)),
+		Handler:   middlewares.ResponseTimMiddleware(middlewares.SecurityHeaders(middlewares.Cors(mux))),
 	}
 
 	http2.ConfigureServer(server, &http2.Server{})
