@@ -7,6 +7,7 @@ import (
 	"os"
 	"rest-srv/api/middlewares"
 	"strconv"
+	"time"
 
 	"golang.org/x/net/http2"
 )
@@ -86,10 +87,11 @@ func main() {
 		MinVersion:   tls.VersionTLS12,
 		Certificates: []tls.Certificate{cert},
 	}
+	rl := middlewares.NewRateLimiter(10, 2*time.Second)
 	server := &http.Server{
 		Addr:      fmt.Sprintf(":%d", serverPort),
 		TLSConfig: tlsConfig,
-		Handler:   middlewares.ResponseTimMiddleware(middlewares.SecurityHeaders(middlewares.Cors(mux))),
+		Handler:   rl.RateLimiterMiddleware(middlewares.ResponseTimMiddleware(middlewares.SecurityHeaders(middlewares.Cors(middlewares.CompressionMiddleware(mux))))),
 	}
 
 	http2.ConfigureServer(server, &http2.Server{})
