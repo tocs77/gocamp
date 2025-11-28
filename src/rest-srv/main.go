@@ -34,6 +34,7 @@ func teacherHandler(w http.ResponseWriter, r *http.Request) {
 func studentHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
+		fmt.Println(r.Form)
 		fmt.Fprintf(w, "Handling POST student request...")
 	case http.MethodGet:
 		fmt.Fprintf(w, "Handling GET student request...")
@@ -88,10 +89,16 @@ func main() {
 		Certificates: []tls.Certificate{cert},
 	}
 	rl := middlewares.NewRateLimiter(10, 2*time.Second)
+	hpp := middlewares.HPPOptions{
+		CheckQuery:                  true,
+		CheckBody:                   true,
+		CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
+		WhiteList:                   []string{"name", "age", "address"},
+	}
 	server := &http.Server{
 		Addr:      fmt.Sprintf(":%d", serverPort),
 		TLSConfig: tlsConfig,
-		Handler:   rl.RateLimiterMiddleware(middlewares.ResponseTimMiddleware(middlewares.SecurityHeaders(middlewares.Cors(middlewares.CompressionMiddleware(mux))))),
+		Handler:   middlewares.Hpp(hpp)(rl.RateLimiterMiddleware(middlewares.ResponseTimMiddleware(middlewares.SecurityHeaders(middlewares.Cors(middlewares.CompressionMiddleware(mux)))))),
 	}
 
 	http2.ConfigureServer(server, &http2.Server{})

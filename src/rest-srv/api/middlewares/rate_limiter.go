@@ -29,7 +29,6 @@ func (rl *rateLimiter) resetVisitorCount() {
 	for {
 		time.Sleep(rl.resetTime)
 		rl.mu.Lock()
-		fmt.Printf("Resetting visitor count\n")
 		rl.visitors = make(map[string]int)
 		rl.mu.Unlock()
 	}
