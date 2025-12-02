@@ -2,15 +2,101 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"rest-srv/api/middlewares"
+	"rest-srv/models"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
 )
+
+var teachers = make(map[int]models.Teacher)
+
+// var teachersMutex = &sync.Mutex{}
+var nextTeacherID = 1
+
+func init() {
+	teachers[nextTeacherID] = models.Teacher{ID: nextTeacherID, FirstName: "John", LastName: "Doe", Class: "1A", Subject: "Math"}
+	nextTeacherID++
+	teachers[nextTeacherID] = models.Teacher{ID: nextTeacherID, FirstName: "Jane", LastName: "Smith", Class: "1B", Subject: "Science"}
+	nextTeacherID++
+	teachers[nextTeacherID] = models.Teacher{ID: nextTeacherID, FirstName: "Jim", LastName: "Beam", Class: "1C", Subject: "History"}
+	nextTeacherID++
+}
+
+func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/teachers")
+	idStr := strings.Trim(path, "/")
+	// Handle GET request for a specific teacher
+	if idStr != "" {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			http.Error(w, "Invalid ID", http.StatusBadRequest)
+			return
+		}
+		teacher, ok := teachers[id]
+		if !ok {
+			http.Error(w, "Teacher not found", http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(teacher)
+		w.Header().Set("Content-Type", "application/json")
+		return
+	}
+
+	sortBy := r.URL.Query().Get("sortBy")
+	sortOrder := r.URL.Query().Get("sortOrder")
+	if sortOrder == "" {
+		sortOrder = "asc"
+	}
+
+	teachersList := make([]models.Teacher, 0, len(teachers))
+	for _, teacher := range teachers {
+		if idStr != "" && strconv.Itoa(teacher.ID) != idStr {
+			continue
+		}
+		teachersList = append(teachersList, teacher)
+	}
+
+	if sortBy != "" {
+		sortByField := func(i, j int) bool {
+			switch sortBy {
+			case "id":
+				return teachersList[i].ID < teachersList[j].ID
+
+			case "first_name":
+				return teachersList[i].FirstName < teachersList[j].FirstName
+			case "last_name":
+				return teachersList[i].LastName < teachersList[j].LastName
+			case "class":
+				return teachersList[i].Class < teachersList[j].Class
+			case "subject":
+				return teachersList[i].Subject < teachersList[j].Subject
+			}
+			return false
+		}
+		sort.SliceStable(teachersList, func(i, j int) bool {
+			if sortOrder == "asc" {
+				return sortByField(i, j)
+			}
+			return !sortByField(i, j)
+		})
+	}
+
+	response := struct {
+		Status string           `json:"status"`
+		Count  int              `json:"count"`
+		Data   []models.Teacher `json:"data"`
+	}{Status: "success", Count: len(teachersList), Data: teachersList}
+	json.NewEncoder(w).Encode(response)
+	w.Header().Set("Content-Type", "application/json")
+}
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello, World!")
@@ -21,7 +107,7 @@ func teacherHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		fmt.Fprintf(w, "Handling POST teacher request...")
 	case http.MethodGet:
-		fmt.Fprintf(w, "Handling GET teacher request...")
+		getTeachersHandler(w, r)
 	case http.MethodPut:
 		fmt.Fprintf(w, "Handling PUT teacher request...")
 	case http.MethodDelete:
@@ -72,10 +158,11 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", rootHandler)
+	mux.HandleFunc("/teachers/", teacherHandler)
 	mux.HandleFunc("/teachers", teacherHandler)
 	mux.HandleFunc("/students", studentHandler)
 	mux.HandleFunc("/execs", execHandler)
+	mux.HandleFunc("/", rootHandler)
 
 	//Load the SSL certificate and key
 
@@ -93,7 +180,7 @@ func main() {
 		CheckQuery:                  true,
 		CheckBody:                   true,
 		CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
-		WhiteList:                   []string{"name", "age", "address"},
+		WhiteList:                   []string{"name", "age", "address", "sortBy", "sortOrder"},
 	}
 
 	middlewares := []Middleware{
