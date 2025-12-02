@@ -95,10 +95,21 @@ func main() {
 		CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
 		WhiteList:                   []string{"name", "age", "address"},
 	}
+
+	middlewares := []Middleware{
+		middlewares.Hpp(hpp),
+		middlewares.CompressionMiddleware,
+		middlewares.SecurityHeaders,
+		middlewares.ResponseTimMiddleware,
+		rl.RateLimiterMiddleware,
+		middlewares.Cors,
+	}
+	secureMux := applyMiddlewares(mux, middlewares...)
+
 	server := &http.Server{
 		Addr:      fmt.Sprintf(":%d", serverPort),
 		TLSConfig: tlsConfig,
-		Handler:   middlewares.Hpp(hpp)(rl.RateLimiterMiddleware(middlewares.ResponseTimMiddleware(middlewares.SecurityHeaders(middlewares.Cors(middlewares.CompressionMiddleware(mux)))))),
+		Handler:   secureMux,
 	}
 
 	http2.ConfigureServer(server, &http2.Server{})
@@ -110,4 +121,13 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+type Middleware func(http.Handler) http.Handler
+
+func applyMiddlewares(handler http.Handler, middlewares ...Middleware) http.Handler {
+	for _, middleware := range middlewares {
+		handler = middleware(handler)
+	}
+	return handler
 }
