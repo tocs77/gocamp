@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -18,7 +19,7 @@ import (
 
 var teachers = make(map[int]models.Teacher)
 
-// var teachersMutex = &sync.Mutex{}
+var teachersMutex = &sync.Mutex{}
 var nextTeacherID = 1
 
 func init() {
@@ -98,6 +99,31 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
+func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	teachersMutex.Lock()
+	defer teachersMutex.Unlock()
+	var newTeachers []models.Teacher
+	err := json.NewDecoder(r.Body).Decode(&newTeachers)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	for i := range newTeachers {
+		newTeachers[i].ID = nextTeacherID
+		teachers[nextTeacherID] = newTeachers[i]
+		nextTeacherID++
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	response := struct {
+		Status string           `json:"status"`
+		Count  int              `json:"count"`
+		Data   []models.Teacher `json:"data"`
+	}{Status: "success", Count: len(newTeachers), Data: newTeachers}
+	json.NewEncoder(w).Encode(response)
+}
+
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello, World!")
 }
@@ -105,7 +131,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func teacherHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		fmt.Fprintf(w, "Handling POST teacher request...")
+		addTeacherHandler(w, r)
 	case http.MethodGet:
 		getTeachersHandler(w, r)
 	case http.MethodPut:
