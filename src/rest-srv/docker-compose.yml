@@ -5,32 +5,37 @@ services:
       - "${EXPOSE_PORT}:${SERVER_PORT}"
     volumes:
       - ./:/app
-    # depends_on:
-    #   - db
-    #   - redis
     restart: always
     env_file:
       - .env
+    depends_on:
+      - db
 
-  # db:
-  #   image: mysql
-  #   restart: always
-  #   environment:
-  #     MYSQL_DATABASE: ambassador
-  #     MYSQL_PASSWORD: root
-  #     MYSQL_ROOT_PASSWORD: root
-  #   volumes:
-  #     - ./dbdata:/var/lib/mysql
-  # redis:
-  #   image: redis
-  #   restart: always
-  #   ports:
-  #     - "6379:6379"
-  # mailhog:
-  #   image: mailhog/mailhog
-  #   ports:
-  #     - "1025:1025"
-  #     - "8025:8025"
-  #   restart: always
-  #   env_file:
-  #     - .env
+  db:
+    image: mariadb:latest
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${DB_NAME}"
+      MYSQL_USER: "${DB_USER}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
+    volumes:
+      - db_data_gorest:/var/lib/mysql
+    restart: always
+
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    ports:
+      - "${CLOUDBEAVER_PORT:-8978}:8978"
+    volumes:
+      - cloudbeaver_workspace:/opt/cloudbeaver/workspace
+    restart: always
+    depends_on:
+      - db
+    # CloudBeaver CloudBeaver1
+
+volumes:
+  db_data_gorest:
+  cloudbeaver_workspace:
+
