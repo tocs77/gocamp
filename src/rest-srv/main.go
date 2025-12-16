@@ -7,6 +7,7 @@ import (
 	"os"
 	"rest-srv/api/middlewares"
 	"rest-srv/api/router"
+	"rest-srv/db"
 	"rest-srv/utility"
 	"strconv"
 	"time"
@@ -22,6 +23,57 @@ func main() {
 			serverPort = port
 		}
 	}
+
+	// Database connection parameters from environment - all required
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		fmt.Println("Error: DB_HOST environment variable is required")
+		os.Exit(1)
+	}
+
+	dbPortStr := os.Getenv("DB_PORT")
+	if dbPortStr == "" {
+		fmt.Println("Error: DB_PORT environment variable is required")
+		os.Exit(1)
+	}
+	dbPort, err := strconv.Atoi(dbPortStr)
+	if err != nil {
+		fmt.Printf("Error: DB_PORT must be a valid integer: %v\n", err)
+		os.Exit(1)
+	}
+
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		fmt.Println("Error: DB_USER environment variable is required")
+		os.Exit(1)
+	}
+
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbPassword == "" {
+		fmt.Println("Error: DB_PASSWORD environment variable is required")
+		os.Exit(1)
+	}
+
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		fmt.Println("Error: DB_NAME environment variable is required")
+		os.Exit(1)
+	}
+
+	// Connect to database
+	database, err := db.ConnectDb(dbUser, dbPassword, dbHost, dbPort, dbName)
+	if err != nil {
+		fmt.Printf("Error connecting to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer database.Close()
+
+	// Test database connection
+	if err := database.Ping(); err != nil {
+		fmt.Printf("Error pinging database: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Database connection established successfully")
 
 	//Load the SSL certificate and key
 
