@@ -61,15 +61,14 @@ func main() {
 	}
 
 	// Connect to database
-	database, err := db.ConnectDb(dbUser, dbPassword, dbHost, dbPort, dbName)
-	if err != nil {
+	if err := db.ConnectDb(dbUser, dbPassword, dbHost, dbPort, dbName); err != nil {
 		fmt.Printf("Error connecting to database: %v\n", err)
 		os.Exit(1)
 	}
-	defer database.Close()
+	defer db.Db.Close()
 
 	// Test database connection
-	if err := database.Ping(); err != nil {
+	if err := db.Db.Ping(); err != nil {
 		fmt.Printf("Error pinging database: %v\n", err)
 		os.Exit(1)
 	}

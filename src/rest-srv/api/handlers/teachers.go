@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"rest-srv/db"
 	"rest-srv/models"
 	"sort"
 	"strconv"
@@ -94,28 +95,34 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
-	teachersMutex.Lock()
-	defer teachersMutex.Unlock()
 	var newTeachers []models.Teacher
 	err := json.NewDecoder(r.Body).Decode(&newTeachers)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	for i := range newTeachers {
-		newTeachers[i].ID = nextTeacherID
-		teachers[nextTeacherID] = newTeachers[i]
-		nextTeacherID++
+	stmt, err := db.Db.Prepare("INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?,?,?,?,?)")
+	if err != nil {
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
 	}
+	defer stmt.Close()
+	addedTeachers := make([]models.Teacher, len(newTeachers))
+	for i, newTeacher := range newTeachers {
+		res, err := stmt.Exec(newTeacher.FirstName, newTeacher.LastName, newTeacher.Email, newTeacher.Class, newTeacher.Subject)
+		if err != nil {
+			http.Error(w, "Error inserting data into database", http.StatusInternalServerError)
+			return
+		}
+		lastID, err := res.LastInsertId()
+		if err != nil {
+			http.Error(w, "Error getting last inserted ID", http.StatusInternalServerError)
+			return
+		}
+		addedTeachers[i].ID = int(lastID)
+	}
+	json.NewEncoder(w).Encode(addedTeachers)
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	response := struct {
-		Status string           `json:"status"`
-		Count  int              `json:"count"`
-		Data   []models.Teacher `json:"data"`
-	}{Status: "success", Count: len(newTeachers), Data: newTeachers}
-	json.NewEncoder(w).Encode(response)
 }
 
 func TeacherHandler(w http.ResponseWriter, r *http.Request) {
