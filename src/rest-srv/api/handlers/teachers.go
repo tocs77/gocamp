@@ -1,30 +1,15 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"rest-srv/db"
 	"rest-srv/models"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
 )
-
-var teachers = make(map[int]models.Teacher)
-
-var teachersMutex = &sync.Mutex{}
-var nextTeacherID = 1
-
-func init() {
-	teachers[nextTeacherID] = models.Teacher{ID: nextTeacherID, FirstName: "John", LastName: "Doe", Class: "1A", Subject: "Math"}
-	nextTeacherID++
-	teachers[nextTeacherID] = models.Teacher{ID: nextTeacherID, FirstName: "Jane", LastName: "Smith", Class: "1B", Subject: "Science"}
-	nextTeacherID++
-	teachers[nextTeacherID] = models.Teacher{ID: nextTeacherID, FirstName: "Jim", LastName: "Beam", Class: "1C", Subject: "History"}
-	nextTeacherID++
-}
 
 func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/teachers")
@@ -36,11 +21,23 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid ID", http.StatusBadRequest)
 			return
 		}
-		teacher, ok := teachers[id]
-		if !ok {
+		row := db.Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
+		if row == nil {
 			http.Error(w, "Teacher not found", http.StatusNotFound)
 			return
 		}
+		var teacher models.Teacher
+		err = row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
+
+		if err == sql.ErrNoRows {
+			http.Error(w, "Teacher not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "Invalid record in database", http.StatusInternalServerError)
+			return
+		}
+
 		json.NewEncoder(w).Encode(teacher)
 		w.Header().Set("Content-Type", "application/json")
 		return
@@ -48,43 +45,52 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 
 	sortBy := r.URL.Query().Get("sortBy")
 	sortOrder := r.URL.Query().Get("sortOrder")
-	if sortOrder == "" {
-		sortOrder = "asc"
+
+	// Validate and sanitize sortBy to prevent SQL injection
+	validColumns := map[string]bool{
+		"id":         true,
+		"first_name": true,
+		"last_name":  true,
+		"email":      true,
+		"class":      true,
+		"subject":    true,
 	}
 
-	teachersList := make([]models.Teacher, 0, len(teachers))
-	for _, teacher := range teachers {
-		if idStr != "" && strconv.Itoa(teacher.ID) != idStr {
-			continue
+	var query string
+	if validColumns[sortBy] {
+		// Validate sortOrder (only allow ASC or DESC)
+		if sortOrder == "" {
+			sortOrder = "ASC"
+		}
+		sortOrder = strings.ToUpper(sortOrder)
+		if sortOrder != "ASC" && sortOrder != "DESC" {
+			sortOrder = "ASC"
+		}
+
+		// Build query with validated column name and sort order
+		query = fmt.Sprintf("SELECT * FROM teachers ORDER BY %s %s", sortBy, sortOrder)
+	} else {
+		// Invalid or empty sortBy, query without ORDER BY
+		query = "SELECT * FROM teachers"
+	}
+
+	teachersList := make([]models.Teacher, 0)
+	rows, err := db.Db.Query(query)
+	if err != nil {
+		fmt.Println("Error querying teachers: ", err)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var teacher models.Teacher
+		err = rows.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
+		if err != nil {
+			http.Error(w, "Invalid record in database", http.StatusInternalServerError)
+			return
 		}
 		teachersList = append(teachersList, teacher)
 	}
-
-	if sortBy != "" {
-		sortByField := func(i, j int) bool {
-			switch sortBy {
-			case "id":
-				return teachersList[i].ID < teachersList[j].ID
-
-			case "first_name":
-				return teachersList[i].FirstName < teachersList[j].FirstName
-			case "last_name":
-				return teachersList[i].LastName < teachersList[j].LastName
-			case "class":
-				return teachersList[i].Class < teachersList[j].Class
-			case "subject":
-				return teachersList[i].Subject < teachersList[j].Subject
-			}
-			return false
-		}
-		sort.SliceStable(teachersList, func(i, j int) bool {
-			if sortOrder == "asc" {
-				return sortByField(i, j)
-			}
-			return !sortByField(i, j)
-		})
-	}
-
 	response := struct {
 		Status string           `json:"status"`
 		Count  int              `json:"count"`
