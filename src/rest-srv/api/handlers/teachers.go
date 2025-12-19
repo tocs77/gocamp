@@ -11,6 +11,19 @@ import (
 	"strings"
 )
 
+func checkValidField(field string) bool {
+	// Validate and sanitize sortBy to prevent SQL injection
+	validColumns := map[string]bool{
+		"id":         true,
+		"first_name": true,
+		"last_name":  true,
+		"email":      true,
+		"class":      true,
+		"subject":    true,
+	}
+	return validColumns[field]
+}
+
 func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/teachers")
 	idStr := strings.Trim(path, "/")
@@ -43,39 +56,76 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sortBy := r.URL.Query().Get("sortBy")
-	sortOrder := r.URL.Query().Get("sortOrder")
-
-	// Validate and sanitize sortBy to prevent SQL injection
-	validColumns := map[string]bool{
-		"id":         true,
-		"first_name": true,
-		"last_name":  true,
-		"email":      true,
-		"class":      true,
-		"subject":    true,
-	}
+	sortByParams := r.URL.Query()["sortBy"]
+	queryParams := r.URL.Query()
 
 	var query string
-	if validColumns[sortBy] {
-		// Validate sortOrder (only allow ASC or DESC)
-		if sortOrder == "" {
-			sortOrder = "ASC"
-		}
-		sortOrder = strings.ToUpper(sortOrder)
-		if sortOrder != "ASC" && sortOrder != "DESC" {
-			sortOrder = "ASC"
+	var orderByClauses []string
+	var whereClauses []string
+	var filterValues []interface{}
+
+	// Parse filter parameters (format: field=value)
+	for field, values := range queryParams {
+		// Skip sortBy parameter as it's handled separately
+		if field == "sortBy" {
+			continue
 		}
 
-		// Build query with validated column name and sort order
-		query = fmt.Sprintf("SELECT * FROM teachers ORDER BY %s %s", sortBy, sortOrder)
-	} else {
-		// Invalid or empty sortBy, query without ORDER BY
-		query = "SELECT * FROM teachers"
+		// Validate field
+		if !checkValidField(field) {
+			continue // Skip invalid field
+		}
+
+		// Use the first value if multiple are provided
+		if len(values) > 0 && values[0] != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("%s = ?", field))
+			filterValues = append(filterValues, values[0])
+		}
+	}
+
+	// Parse each sortBy parameter (format: field:asc or field:desc)
+	for _, sortParam := range sortByParams {
+		parts := strings.Split(sortParam, ":")
+		if len(parts) != 2 {
+			continue // Skip invalid format
+		}
+
+		field := strings.TrimSpace(parts[0])
+		order := strings.TrimSpace(strings.ToUpper(parts[1]))
+
+		// Validate field
+		if !checkValidField(field) {
+			continue // Skip invalid field
+		}
+
+		// Validate order (only allow ASC or DESC)
+		if order != "ASC" && order != "DESC" {
+			order = "ASC" // Default to ASC if invalid
+		}
+
+		// Add to order by clauses
+		orderByClauses = append(orderByClauses, fmt.Sprintf("%s %s", field, order))
+	}
+
+	// Build query with WHERE and ORDER BY clauses
+	query = "SELECT * FROM teachers"
+	if len(whereClauses) > 0 {
+		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+	if len(orderByClauses) > 0 {
+		query += " ORDER BY " + strings.Join(orderByClauses, ", ")
 	}
 
 	teachersList := make([]models.Teacher, 0)
-	rows, err := db.Db.Query(query)
+	var rows *sql.Rows
+	var err error
+
+	// Execute query with parameterized values
+	if len(filterValues) > 0 {
+		rows, err = db.Db.Query(query, filterValues...)
+	} else {
+		rows, err = db.Db.Query(query)
+	}
 	if err != nil {
 		fmt.Println("Error querying teachers: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -91,6 +141,7 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		teachersList = append(teachersList, teacher)
 	}
+
 	response := struct {
 		Status string           `json:"status"`
 		Count  int              `json:"count"`
