@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"rest-srv/db"
 	"rest-srv/models"
 	"strconv"
@@ -193,7 +194,7 @@ func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-// reachers/{id}
+// teachers/{id}
 func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := getId(r.URL.Path)
 	if err != nil {
@@ -204,32 +205,42 @@ func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No ID", http.StatusBadRequest)
 		return
 	}
+
+	// Verify teacher exists before updating
+	var existingTeacher models.Teacher
+	row := db.Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
+	err = row.Scan(&existingTeacher.ID, &existingTeacher.FirstName, &existingTeacher.LastName, &existingTeacher.Email, &existingTeacher.Class, &existingTeacher.Subject)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Teacher not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Error getting existing teacher", http.StatusInternalServerError)
+		return
+	}
+
 	var updatedTeacher models.Teacher
 	err = json.NewDecoder(r.Body).Decode(&updatedTeacher)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
 	stmt, err := db.Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
-	res, err := stmt.Exec(updatedTeacher.FirstName, updatedTeacher.LastName, updatedTeacher.Email, updatedTeacher.Class, updatedTeacher.Subject, id)
+
+	_, err = stmt.Exec(updatedTeacher.FirstName, updatedTeacher.LastName, updatedTeacher.Email, updatedTeacher.Class, updatedTeacher.Subject, id)
 	if err != nil {
 		http.Error(w, "Error updating data into database", http.StatusInternalServerError)
 		return
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		http.Error(w, "Error getting affected rows", http.StatusInternalServerError)
-		return
-	}
-	if affected == 0 {
-		http.Error(w, "Teacher not found", http.StatusNotFound)
-		return
-	}
+
+	// Set the ID from the URL path
+	updatedTeacher.ID = id
 	json.NewEncoder(w).Encode(updatedTeacher)
 	w.Header().Set("Content-Type", "application/json")
 }
@@ -244,58 +255,54 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No ID", http.StatusBadRequest)
 		return
 	}
-	var updatedTeacher models.Teacher
-	err = json.NewDecoder(r.Body).Decode(&updatedTeacher)
+
+	var updatedFields map[string]any
+	err = json.NewDecoder(r.Body).Decode(&updatedFields)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
 	var existingTeacher models.Teacher
 	row := db.Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
-	if row == nil {
+	err = row.Scan(&existingTeacher.ID, &existingTeacher.FirstName, &existingTeacher.LastName, &existingTeacher.Email, &existingTeacher.Class, &existingTeacher.Subject)
+	if err == sql.ErrNoRows {
 		http.Error(w, "Teacher not found", http.StatusNotFound)
 		return
 	}
-	err = row.Scan(&existingTeacher.ID, &existingTeacher.FirstName, &existingTeacher.LastName, &existingTeacher.Email, &existingTeacher.Class, &existingTeacher.Subject)
 	if err != nil {
 		http.Error(w, "Error getting existing teacher", http.StatusInternalServerError)
 		return
 	}
-	if updatedTeacher.FirstName != "" {
-		existingTeacher.FirstName = updatedTeacher.FirstName
+
+	teacherVal := reflect.ValueOf(&existingTeacher).Elem()
+	teacherType := teacherVal.Type()
+	for key, value := range updatedFields {
+		for i := 0; i < teacherVal.NumField(); i++ {
+			field := teacherType.Field(i)
+			jsonTag := field.Tag.Get("json")
+			// Extract the field name from the JSON tag (remove ",omitempty" if present)
+			jsonFieldName := strings.Split(jsonTag, ",")[0]
+			if jsonFieldName == key && teacherVal.Field(i).CanSet() {
+				teacherVal.Field(i).Set(reflect.ValueOf(value).Convert(teacherVal.Field(i).Type()))
+				break
+			}
+		}
 	}
-	if updatedTeacher.LastName != "" {
-		existingTeacher.LastName = updatedTeacher.LastName
-	}
-	if updatedTeacher.Email != "" {
-		existingTeacher.Email = updatedTeacher.Email
-	}
-	if updatedTeacher.Class != "" {
-		existingTeacher.Class = updatedTeacher.Class
-	}
-	if updatedTeacher.Subject != "" {
-		existingTeacher.Subject = updatedTeacher.Subject
-	}
+
 	stmt, err := db.Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 	defer stmt.Close()
-	res, err := stmt.Exec(existingTeacher.FirstName, existingTeacher.LastName, existingTeacher.Email, existingTeacher.Class, existingTeacher.Subject, id)
+
+	_, err = stmt.Exec(existingTeacher.FirstName, existingTeacher.LastName, existingTeacher.Email, existingTeacher.Class, existingTeacher.Subject, id)
 	if err != nil {
 		http.Error(w, "Error updating data into database", http.StatusInternalServerError)
 		return
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		http.Error(w, "Error getting affected rows", http.StatusInternalServerError)
-		return
-	}
-	if affected == 0 {
-		http.Error(w, "Teacher not found", http.StatusNotFound)
-		return
-	}
+
 	json.NewEncoder(w).Encode(existingTeacher)
 	w.Header().Set("Content-Type", "application/json")
 }
