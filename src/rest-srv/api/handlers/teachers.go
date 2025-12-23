@@ -25,49 +25,36 @@ func checkValidField(field string) bool {
 	return validColumns[field]
 }
 
-func getId(path string) (int, error) {
-	p := strings.TrimPrefix(path, "/teachers")
-	idStr := strings.Trim(p, "/")
-	// Handle GET request for a specific teacher
-	if idStr == "" {
-		return 0, nil
-	}
-
+func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return 0, err
-	}
-	return id, nil
-}
-
-func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := getId(r.URL.Path)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	if id != 0 {
-		row := db.Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
-		if row == nil {
-			http.Error(w, "Teacher not found", http.StatusNotFound)
-			return
-		}
-		var teacher models.Teacher
-		err = row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
-
-		if err == sql.ErrNoRows {
-			http.Error(w, "Teacher not found", http.StatusNotFound)
-			return
-		}
-		if err != nil {
-			http.Error(w, "Invalid record in database", http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode(teacher)
-		w.Header().Set("Content-Type", "application/json")
+	row := db.Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
+	if row == nil {
+		http.Error(w, "Teacher not found", http.StatusNotFound)
 		return
 	}
+	var teacher models.Teacher
+	err = row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
+
+	if err == sql.ErrNoRows {
+		http.Error(w, "Teacher not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Invalid record in database", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(teacher)
+	w.Header().Set("Content-Type", "application/json")
+
+}
+
+func GetTeachersHandler(w http.ResponseWriter, r *http.Request) {
 
 	sortByParams := r.URL.Query()["sortBy"]
 	queryParams := r.URL.Query()
@@ -131,6 +118,7 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 
 	teachersList := make([]models.Teacher, 0)
 	var rows *sql.Rows
+	var err error
 
 	// Execute query with parameterized values
 	if len(filterValues) > 0 {
@@ -163,7 +151,7 @@ func getTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
+func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	var newTeachers []models.Teacher
 	err := json.NewDecoder(r.Body).Decode(&newTeachers)
 	if err != nil {
@@ -195,8 +183,9 @@ func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // teachers/{id}
-func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := getId(r.URL.Path)
+func UpdateTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -245,8 +234,9 @@ func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := getId(r.URL.Path)
+func PatchTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -307,8 +297,9 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func deleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := getId(r.URL.Path)
+func DeleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -348,21 +339,4 @@ func deleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func TeacherHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		addTeacherHandler(w, r)
-	case http.MethodGet:
-		getTeachersHandler(w, r)
-	case http.MethodPut:
-		updateTeacherHandler(w, r)
-	case http.MethodPatch:
-		patchTeacherHandler(w, r)
-	case http.MethodDelete:
-		deleteTeacherHandler(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
 }
