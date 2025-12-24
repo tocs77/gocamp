@@ -25,6 +25,27 @@ func checkValidField(field string) bool {
 	return validColumns[field]
 }
 
+func patchTeacher(teacher *models.Teacher, updatedFields map[string]any) {
+	teacherVal := reflect.ValueOf(teacher).Elem()
+	teacherType := teacherVal.Type()
+	for key, value := range updatedFields {
+		// Skip id field - it shouldn't be updated via PATCH
+		if key == "id" {
+			continue
+		}
+		for i := 0; i < teacherVal.NumField(); i++ {
+			field := teacherType.Field(i)
+			jsonTag := field.Tag.Get("json")
+			// Extract the field name from the JSON tag (remove ",omitempty" if present)
+			jsonFieldName := strings.Split(jsonTag, ",")[0]
+			if jsonFieldName == key && teacherVal.Field(i).CanSet() {
+				teacherVal.Field(i).Set(reflect.ValueOf(value).Convert(teacherVal.Field(i).Type()))
+				break
+			}
+		}
+	}
+}
+
 func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
@@ -265,20 +286,7 @@ func PatchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teacherVal := reflect.ValueOf(&existingTeacher).Elem()
-	teacherType := teacherVal.Type()
-	for key, value := range updatedFields {
-		for i := 0; i < teacherVal.NumField(); i++ {
-			field := teacherType.Field(i)
-			jsonTag := field.Tag.Get("json")
-			// Extract the field name from the JSON tag (remove ",omitempty" if present)
-			jsonFieldName := strings.Split(jsonTag, ",")[0]
-			if jsonFieldName == key && teacherVal.Field(i).CanSet() {
-				teacherVal.Field(i).Set(reflect.ValueOf(value).Convert(teacherVal.Field(i).Type()))
-				break
-			}
-		}
-	}
+	patchTeacher(&existingTeacher, updatedFields)
 
 	stmt, err := db.Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
 	if err != nil {
@@ -294,6 +302,76 @@ func PatchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(existingTeacher)
+	w.Header().Set("Content-Type", "application/json")
+}
+
+func PatchTeachersHandler(w http.ResponseWriter, r *http.Request) {
+	var updates []map[string]any
+	err := json.NewDecoder(r.Body).Decode(&updates)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := db.Db.Begin()
+	if err != nil {
+		http.Error(w, "Error starting transaction", http.StatusInternalServerError)
+		return
+	}
+	rollbackNeeded := true
+	defer func() {
+		if rollbackNeeded {
+			tx.Rollback()
+		}
+	}()
+
+	updatedTeachers := make([]models.Teacher, 0, len(updates))
+	for _, update := range updates {
+		idStr := update["id"]
+		id, err := strconv.Atoi(idStr.(string))
+		if err != nil {
+			http.Error(w, "Invalid ID", http.StatusBadRequest)
+			return
+		}
+		if id == 0 {
+			http.Error(w, "No ID", http.StatusBadRequest)
+			return
+		}
+		var existingTeacher models.Teacher
+		row := tx.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
+		err = row.Scan(&existingTeacher.ID, &existingTeacher.FirstName, &existingTeacher.LastName, &existingTeacher.Email, &existingTeacher.Class, &existingTeacher.Subject)
+		if err == sql.ErrNoRows {
+			http.Error(w, "Teacher not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, "Error getting existing teacher", http.StatusInternalServerError)
+			return
+		}
+		patchTeacher(&existingTeacher, update)
+		stmt, err := tx.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
+		if err != nil {
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+			return
+		}
+		_, err = stmt.Exec(existingTeacher.FirstName, existingTeacher.LastName, existingTeacher.Email, existingTeacher.Class, existingTeacher.Subject, id)
+		stmt.Close()
+		if err != nil {
+			http.Error(w, "Error updating data into database", http.StatusInternalServerError)
+			return
+		}
+		updatedTeachers = append(updatedTeachers, existingTeacher)
+	}
+
+	// Commit the transaction if all updates succeeded
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Error committing transaction", http.StatusInternalServerError)
+		return
+	}
+	rollbackNeeded = false
+
+	json.NewEncoder(w).Encode(updatedTeachers)
 	w.Header().Set("Content-Type", "application/json")
 }
 
