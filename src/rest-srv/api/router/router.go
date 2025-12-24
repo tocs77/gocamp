@@ -7,10 +7,15 @@ import (
 
 func Router() *http.ServeMux {
 	mux := http.NewServeMux()
+	// Register routes with and without trailing slash
+	mux.HandleFunc("GET /teachers", handlers.GetTeachersHandler)
 	mux.HandleFunc("GET /teachers/", handlers.GetTeachersHandler)
+	mux.HandleFunc("POST /teachers", handlers.AddTeacherHandler)
 	mux.HandleFunc("POST /teachers/", handlers.AddTeacherHandler)
+	mux.HandleFunc("PATCH /teachers", handlers.PatchTeachersHandler)
 	mux.HandleFunc("PATCH /teachers/", handlers.PatchTeachersHandler)
-	mux.HandleFunc("DELETE /teachers/", handlers.DeleteTeacherHandler)
+	mux.HandleFunc("DELETE /teachers", handlers.DeleteTeachersHandler)
+	mux.HandleFunc("DELETE /teachers/", handlers.DeleteTeachersHandler)
 
 	mux.HandleFunc("GET /teachers/{id}", handlers.GetTeacherHandler)
 	mux.HandleFunc("PUT /teachers/{id}", handlers.UpdateTeacherHandler)

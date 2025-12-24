@@ -418,3 +418,58 @@ func DeleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
 }
+func DeleteTeachersHandler(w http.ResponseWriter, r *http.Request) {
+	var ids []int
+	err := json.NewDecoder(r.Body).Decode(&ids)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := db.Db.Begin()
+	if err != nil {
+		http.Error(w, "Error starting transaction", http.StatusInternalServerError)
+		return
+	}
+	rollbackNeeded := true
+	defer func() {
+		if rollbackNeeded {
+			tx.Rollback()
+		}
+	}()
+
+	for _, id := range ids {
+		stmt, err := tx.Prepare("DELETE FROM teachers WHERE id = ?")
+		if err != nil {
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+			return
+		}
+		result, err := stmt.Exec(id)
+		stmt.Close()
+		if err != nil {
+			http.Error(w, "Error deleting teacher from database", http.StatusInternalServerError)
+			return
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			http.Error(w, "Error getting rows affected", http.StatusInternalServerError)
+			return
+		}
+		if rowsAffected == 0 {
+			http.Error(w, "Teacher not found for id: "+strconv.Itoa(id), http.StatusNotFound)
+			return
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Error committing transaction", http.StatusInternalServerError)
+		return
+	}
+	rollbackNeeded = false
+	json.NewEncoder(w).Encode(struct {
+		Status     string `json:"status"`
+		Message    string `json:"message"`
+		DeletedIDs []int  `json:"deleted_ids"`
+	}{Status: "success", Message: "Teachers deleted successfully", DeletedIDs: ids})
+	w.Header().Set("Content-Type", "application/json")
+}
