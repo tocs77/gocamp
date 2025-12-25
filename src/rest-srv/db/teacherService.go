@@ -1,0 +1,376 @@
+package db
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"reflect"
+	"rest-srv/models"
+	"strconv"
+	"strings"
+)
+
+func checkValidField(field string) bool {
+	validColumns := map[string]bool{
+		"id":         true,
+		"first_name": true,
+		"last_name":  true,
+		"email":      true,
+		"class":      true,
+		"subject":    true,
+	}
+	return validColumns[field]
+}
+
+func GetTeacherById(id int) (models.Teacher, error) {
+	row := Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
+	var teacher models.Teacher
+	err := row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
+	if err == sql.ErrNoRows {
+		return models.Teacher{}, errors.New("teacher not found")
+	}
+	if err != nil {
+		return models.Teacher{}, err
+	}
+	return teacher, nil
+}
+
+// GetTeachers retrieves teachers with optional filters and sorting
+// filters: map of field name to filter value (e.g., map[string]string{"email": "test@example.com"})
+// sortParams: slice of strings in the format "field:asc" or "field:desc"
+func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teacher, error) {
+	var query string
+	var orderByClauses []string
+	var whereClauses []string
+	var filterValues []any
+
+	// Build WHERE clauses from filters
+	for field, value := range filters {
+		if !checkValidField(field) {
+			continue // Skip invalid field
+		}
+		if value != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("%s = ?", field))
+			filterValues = append(filterValues, value)
+		}
+	}
+
+	// Parse each sortBy parameter (format: field:asc or field:desc)
+	for _, sortParam := range sortParams {
+		parts := strings.Split(sortParam, ":")
+		if len(parts) != 2 {
+			continue // Skip invalid format
+		}
+
+		field := strings.TrimSpace(parts[0])
+		order := strings.TrimSpace(strings.ToUpper(parts[1]))
+
+		// Validate field
+		if !checkValidField(field) {
+			continue // Skip invalid field
+		}
+
+		// Validate order (only allow ASC or DESC)
+		if order != "ASC" && order != "DESC" {
+			order = "ASC" // Default to ASC if invalid
+		}
+
+		// Add to order by clauses
+		orderByClauses = append(orderByClauses, fmt.Sprintf("%s %s", field, order))
+	}
+
+	// Build query with WHERE and ORDER BY clauses
+	query = "SELECT * FROM teachers"
+	if len(whereClauses) > 0 {
+		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+	if len(orderByClauses) > 0 {
+		query += " ORDER BY " + strings.Join(orderByClauses, ", ")
+	}
+
+	teachersList := make([]models.Teacher, 0)
+	var rows *sql.Rows
+	var err error
+
+	// Execute query with parameterized values
+	if len(filterValues) > 0 {
+		rows, err = Db.Query(query, filterValues...)
+	} else {
+		rows, err = Db.Query(query)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var teacher models.Teacher
+		err = rows.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
+		if err != nil {
+			return nil, err
+		}
+		teachersList = append(teachersList, teacher)
+	}
+
+	return teachersList, nil
+}
+
+func AddTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
+	stmt, err := Db.Prepare("INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?,?,?,?,?)")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	addedTeachers := make([]models.Teacher, len(teachers))
+	for i, teacher := range teachers {
+		res, err := stmt.Exec(teacher.FirstName, teacher.LastName, teacher.Email, teacher.Class, teacher.Subject)
+		if err != nil {
+			return nil, err
+		}
+		lastID, err := res.LastInsertId()
+		if err != nil {
+			return nil, err
+		}
+		addedTeachers[i] = teacher
+		addedTeachers[i].ID = int(lastID)
+	}
+
+	return addedTeachers, nil
+}
+
+func PatchTeacherFields(teacher *models.Teacher, updatedFields map[string]any) {
+	teacherVal := reflect.ValueOf(teacher).Elem()
+	teacherType := teacherVal.Type()
+	for key, value := range updatedFields {
+		// Skip id field - it shouldn't be updated via PATCH
+		if key == "id" {
+			continue
+		}
+		for i := 0; i < teacherVal.NumField(); i++ {
+			field := teacherType.Field(i)
+			jsonTag := field.Tag.Get("json")
+			// Extract the field name from the JSON tag (remove ",omitempty" if present)
+			jsonFieldName := strings.Split(jsonTag, ",")[0]
+			if jsonFieldName == key && teacherVal.Field(i).CanSet() {
+				teacherVal.Field(i).Set(reflect.ValueOf(value).Convert(teacherVal.Field(i).Type()))
+				break
+			}
+		}
+	}
+}
+
+func PatchTeacher(id int, updateFields map[string]any) (models.Teacher, error) {
+	teacher, err := GetTeacherById(id)
+	if err != nil {
+		return models.Teacher{}, err
+	}
+	if teacher == (models.Teacher{}) {
+		return models.Teacher{}, errors.New("teacher not found")
+	}
+
+	// Apply patch updates to teacher
+	PatchTeacherFields(&teacher, updateFields)
+
+	// Update database
+	stmt, err := Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
+	if err != nil {
+		return models.Teacher{}, err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(teacher.FirstName, teacher.LastName, teacher.Email, teacher.Class, teacher.Subject, teacher.ID)
+	if err != nil {
+		return models.Teacher{}, err
+	}
+	return teacher, nil
+}
+
+func UpdateTeacher(id int, updatedTeacher models.Teacher) (models.Teacher, error) {
+	// Verify teacher exists before updating
+	_, err := GetTeacherById(id)
+	if err != nil {
+		return models.Teacher{}, err
+	}
+
+	// Set the ID from the parameter
+	updatedTeacher.ID = id
+
+	// Update database
+	stmt, err := Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
+	if err != nil {
+		return models.Teacher{}, err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(updatedTeacher.FirstName, updatedTeacher.LastName, updatedTeacher.Email, updatedTeacher.Class, updatedTeacher.Subject, id)
+	if err != nil {
+		return models.Teacher{}, err
+	}
+
+	return updatedTeacher, nil
+}
+func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
+	tx, err := Db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	rollbackNeeded := true
+	defer func() {
+		if rollbackNeeded {
+			tx.Rollback()
+		}
+	}()
+
+	updatedTeachers := make([]models.Teacher, 0, len(updates))
+	for _, update := range updates {
+		// Extract and validate ID
+		idVal, ok := update["id"]
+		if !ok {
+			rollbackNeeded = true
+			return nil, errors.New("id is required")
+		}
+
+		var id int
+		switch v := idVal.(type) {
+		case string:
+			var err error
+			id, err = strconv.Atoi(v)
+			if err != nil {
+				rollbackNeeded = true
+				return nil, errors.New("invalid id")
+			}
+		case float64:
+			id = int(v)
+		case int:
+			id = v
+		default:
+			rollbackNeeded = true
+			return nil, errors.New("invalid id type")
+		}
+
+		if id == 0 {
+			rollbackNeeded = true
+			return nil, errors.New("no id")
+		}
+
+		// Get existing teacher
+		existingTeacher, err := GetTeacherById(id)
+		if err != nil {
+			rollbackNeeded = true
+			return nil, err
+		}
+
+		// Apply patch updates to teacher
+		PatchTeacherFields(&existingTeacher, update)
+
+		// Update database within transaction
+		stmt, err := tx.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
+		if err != nil {
+			rollbackNeeded = true
+			return nil, err
+		}
+		_, err = stmt.Exec(existingTeacher.FirstName, existingTeacher.LastName, existingTeacher.Email, existingTeacher.Class, existingTeacher.Subject, id)
+		stmt.Close()
+		if err != nil {
+			rollbackNeeded = true
+			return nil, err
+		}
+		updatedTeachers = append(updatedTeachers, existingTeacher)
+	}
+
+	// Commit the transaction if all updates succeeded
+	err = tx.Commit()
+	if err != nil {
+		rollbackNeeded = true
+		return nil, err
+	}
+	rollbackNeeded = false
+
+	return updatedTeachers, nil
+}
+
+func DeleteTeacher(id int) (models.Teacher, error) {
+	// Get teacher before deleting to return it
+	teacher, err := GetTeacherById(id)
+	if err != nil {
+		return models.Teacher{}, err
+	}
+
+	stmt, err := Db.Prepare("DELETE FROM teachers WHERE id = ?")
+	if err != nil {
+		return models.Teacher{}, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(id)
+	if err != nil {
+		return models.Teacher{}, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return models.Teacher{}, err
+	}
+	if rowsAffected == 0 {
+		return models.Teacher{}, errors.New("teacher not found")
+	}
+
+	return teacher, nil
+}
+
+func DeleteTeachers(ids []int) ([]models.Teacher, error) {
+	tx, err := Db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	rollbackNeeded := true
+	defer func() {
+		if rollbackNeeded {
+			tx.Rollback()
+		}
+	}()
+
+	deletedTeachers := make([]models.Teacher, 0, len(ids))
+	for _, id := range ids {
+		// Get teacher before deleting to return it
+		teacher, err := GetTeacherById(id)
+		if err != nil {
+			rollbackNeeded = true
+			return nil, fmt.Errorf("teacher not found for id: %d", id)
+		}
+
+		stmt, err := tx.Prepare("DELETE FROM teachers WHERE id = ?")
+		if err != nil {
+			rollbackNeeded = true
+			return nil, err
+		}
+		result, err := stmt.Exec(id)
+		stmt.Close()
+		if err != nil {
+			rollbackNeeded = true
+			return nil, err
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			rollbackNeeded = true
+			return nil, err
+		}
+		if rowsAffected == 0 {
+			rollbackNeeded = true
+			return nil, fmt.Errorf("teacher not found for id: %d", id)
+		}
+
+		deletedTeachers = append(deletedTeachers, teacher)
+	}
+
+	// Commit the transaction if all deletions succeeded
+	err = tx.Commit()
+	if err != nil {
+		rollbackNeeded = true
+		return nil, err
+	}
+	rollbackNeeded = false
+
+	return deletedTeachers, nil
+}
