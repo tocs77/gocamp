@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"rest-srv/models"
+	"rest-srv/utility"
 	"strconv"
 	"strings"
 )
@@ -27,10 +28,10 @@ func GetTeacherById(id int) (models.Teacher, error) {
 	var teacher models.Teacher
 	err := row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
 	if err == sql.ErrNoRows {
-		return models.Teacher{}, errors.New("teacher not found")
+		return models.Teacher{}, utility.ErrorHandler(err, "teacher not found")
 	}
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "unable to retrieve teacher")
 	}
 	return teacher, nil
 }
@@ -99,7 +100,7 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 		rows, err = Db.Query(query)
 	}
 	if err != nil {
-		return nil, err
+		return nil, utility.ErrorHandler(err, "unable to retrieve teachers")
 	}
 	defer rows.Close()
 
@@ -107,7 +108,7 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 		var teacher models.Teacher
 		err = rows.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
 		if err != nil {
-			return nil, err
+			return nil, utility.ErrorHandler(err, "unable to process teacher data")
 		}
 		teachersList = append(teachersList, teacher)
 	}
@@ -118,7 +119,7 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 func AddTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
 	stmt, err := Db.Prepare("INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?,?,?,?,?)")
 	if err != nil {
-		return nil, err
+		return nil, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 
@@ -126,11 +127,11 @@ func AddTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
 	for i, teacher := range teachers {
 		res, err := stmt.Exec(teacher.FirstName, teacher.LastName, teacher.Email, teacher.Class, teacher.Subject)
 		if err != nil {
-			return nil, err
+			return nil, utility.ErrorHandler(err, "database error")
 		}
 		lastID, err := res.LastInsertId()
 		if err != nil {
-			return nil, err
+			return nil, utility.ErrorHandler(err, "database error")
 		}
 		addedTeachers[i] = teacher
 		addedTeachers[i].ID = int(lastID)
@@ -166,7 +167,7 @@ func PatchTeacher(id int, updateFields map[string]any) (models.Teacher, error) {
 		return models.Teacher{}, err
 	}
 	if teacher == (models.Teacher{}) {
-		return models.Teacher{}, errors.New("teacher not found")
+		return models.Teacher{}, utility.ErrorHandler(errors.New("teacher not found"), "teacher not found")
 	}
 
 	// Apply patch updates to teacher
@@ -175,12 +176,12 @@ func PatchTeacher(id int, updateFields map[string]any) (models.Teacher, error) {
 	// Update database
 	stmt, err := Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 	_, err = stmt.Exec(teacher.FirstName, teacher.LastName, teacher.Email, teacher.Class, teacher.Subject, teacher.ID)
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "database error")
 	}
 	return teacher, nil
 }
@@ -198,13 +199,13 @@ func UpdateTeacher(id int, updatedTeacher models.Teacher) (models.Teacher, error
 	// Update database
 	stmt, err := Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(updatedTeacher.FirstName, updatedTeacher.LastName, updatedTeacher.Email, updatedTeacher.Class, updatedTeacher.Subject, id)
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "database error")
 	}
 
 	return updatedTeacher, nil
@@ -212,7 +213,7 @@ func UpdateTeacher(id int, updatedTeacher models.Teacher) (models.Teacher, error
 func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 	tx, err := Db.Begin()
 	if err != nil {
-		return nil, err
+		return nil, utility.ErrorHandler(err, "database error")
 	}
 	rollbackNeeded := true
 	defer func() {
@@ -227,7 +228,7 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 		idVal, ok := update["id"]
 		if !ok {
 			rollbackNeeded = true
-			return nil, errors.New("id is required")
+			return nil, utility.ErrorHandler(errors.New("id is required"), "id is required")
 		}
 
 		var id int
@@ -237,7 +238,7 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 			id, err = strconv.Atoi(v)
 			if err != nil {
 				rollbackNeeded = true
-				return nil, errors.New("invalid id")
+				return nil, utility.ErrorHandler(err, "invalid id")
 			}
 		case float64:
 			id = int(v)
@@ -245,12 +246,12 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 			id = v
 		default:
 			rollbackNeeded = true
-			return nil, errors.New("invalid id type")
+			return nil, utility.ErrorHandler(errors.New("invalid id type"), "invalid id type")
 		}
 
 		if id == 0 {
 			rollbackNeeded = true
-			return nil, errors.New("no id")
+			return nil, utility.ErrorHandler(errors.New("no id"), "no id")
 		}
 
 		// Get existing teacher
@@ -267,13 +268,13 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 		stmt, err := tx.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
 		if err != nil {
 			rollbackNeeded = true
-			return nil, err
+			return nil, utility.ErrorHandler(err, "database error")
 		}
 		_, err = stmt.Exec(existingTeacher.FirstName, existingTeacher.LastName, existingTeacher.Email, existingTeacher.Class, existingTeacher.Subject, id)
 		stmt.Close()
 		if err != nil {
 			rollbackNeeded = true
-			return nil, err
+			return nil, utility.ErrorHandler(err, "database error")
 		}
 		updatedTeachers = append(updatedTeachers, existingTeacher)
 	}
@@ -282,7 +283,7 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 	err = tx.Commit()
 	if err != nil {
 		rollbackNeeded = true
-		return nil, err
+		return nil, utility.ErrorHandler(err, "database error")
 	}
 	rollbackNeeded = false
 
@@ -298,21 +299,21 @@ func DeleteTeacher(id int) (models.Teacher, error) {
 
 	stmt, err := Db.Prepare("DELETE FROM teachers WHERE id = ?")
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 
 	result, err := stmt.Exec(id)
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "database error")
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Teacher{}, utility.ErrorHandler(err, "database error")
 	}
 	if rowsAffected == 0 {
-		return models.Teacher{}, errors.New("teacher not found")
+		return models.Teacher{}, utility.ErrorHandler(errors.New("teacher not found"), "teacher not found")
 	}
 
 	return teacher, nil
@@ -321,7 +322,7 @@ func DeleteTeacher(id int) (models.Teacher, error) {
 func DeleteTeachers(ids []int) ([]models.Teacher, error) {
 	tx, err := Db.Begin()
 	if err != nil {
-		return nil, err
+		return nil, utility.ErrorHandler(err, "database error")
 	}
 	rollbackNeeded := true
 	defer func() {
@@ -336,29 +337,29 @@ func DeleteTeachers(ids []int) ([]models.Teacher, error) {
 		teacher, err := GetTeacherById(id)
 		if err != nil {
 			rollbackNeeded = true
-			return nil, fmt.Errorf("teacher not found for id: %d", id)
+			return nil, err
 		}
 
 		stmt, err := tx.Prepare("DELETE FROM teachers WHERE id = ?")
 		if err != nil {
 			rollbackNeeded = true
-			return nil, err
+			return nil, utility.ErrorHandler(err, "database error")
 		}
 		result, err := stmt.Exec(id)
 		stmt.Close()
 		if err != nil {
 			rollbackNeeded = true
-			return nil, err
+			return nil, utility.ErrorHandler(err, "database error")
 		}
 
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
 			rollbackNeeded = true
-			return nil, err
+			return nil, utility.ErrorHandler(err, "database error")
 		}
 		if rowsAffected == 0 {
 			rollbackNeeded = true
-			return nil, fmt.Errorf("teacher not found for id: %d", id)
+			return nil, utility.ErrorHandler(errors.New("teacher not found"), "teacher not found")
 		}
 
 		deletedTeachers = append(deletedTeachers, teacher)
@@ -368,7 +369,7 @@ func DeleteTeachers(ids []int) ([]models.Teacher, error) {
 	err = tx.Commit()
 	if err != nil {
 		rollbackNeeded = true
-		return nil, err
+		return nil, utility.ErrorHandler(err, "database error")
 	}
 	rollbackNeeded = false
 

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"rest-srv/db"
 	"rest-srv/models"
@@ -14,16 +13,16 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 	teacher, err := db.GetTeacherById(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if teacher == (models.Teacher{}) {
-		http.Error(w, "Teacher not found", http.StatusNotFound)
+		if err.Error() == "teacher not found" {
+			http.Error(w, "teacher not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "unable to retrieve teacher", http.StatusInternalServerError)
 		return
 	}
 
@@ -52,8 +51,7 @@ func GetTeachersHandler(w http.ResponseWriter, r *http.Request) {
 
 	teachersList, err := db.GetTeachers(filters, sortByParams)
 	if err != nil {
-		fmt.Println("Error querying teachers: ", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
+		http.Error(w, "unable to retrieve teachers", http.StatusInternalServerError)
 		return
 	}
 
@@ -70,13 +68,13 @@ func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	var newTeachers []models.Teacher
 	err := json.NewDecoder(r.Body).Decode(&newTeachers)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	addedTeachers, err := db.AddTeachers(newTeachers)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "unable to add teachers", http.StatusInternalServerError)
 		return
 	}
 
@@ -89,28 +87,28 @@ func UpdateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 	if id == 0 {
-		http.Error(w, "No ID", http.StatusBadRequest)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
 	var updatedTeacher models.Teacher
 	err = json.NewDecoder(r.Body).Decode(&updatedTeacher)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	updatedTeacher, err = db.UpdateTeacher(id, updatedTeacher)
 	if err != nil {
 		if err.Error() == "teacher not found" {
-			http.Error(w, "Teacher not found", http.StatusNotFound)
+			http.Error(w, "teacher not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "unable to update teacher", http.StatusInternalServerError)
 		return
 	}
 
@@ -122,28 +120,28 @@ func PatchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 	if id == 0 {
-		http.Error(w, "No ID", http.StatusBadRequest)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
 	var updatedFields map[string]any
 	err = json.NewDecoder(r.Body).Decode(&updatedFields)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	updatedTeacher, err := db.PatchTeacher(id, updatedFields)
 	if err != nil {
 		if err.Error() == "teacher not found" {
-			http.Error(w, "Teacher not found", http.StatusNotFound)
+			http.Error(w, "teacher not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "unable to update teacher", http.StatusInternalServerError)
 		return
 	}
 
@@ -155,13 +153,17 @@ func PatchTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	var updates []map[string]any
 	err := json.NewDecoder(r.Body).Decode(&updates)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	updatedTeachers, err := db.PatchTeachers(updates)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if err.Error() == "teacher not found" || strings.Contains(err.Error(), "teacher not found") {
+			http.Error(w, "teacher not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "unable to update teachers", http.StatusInternalServerError)
 		return
 	}
 
@@ -173,21 +175,21 @@ func DeleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 	if id == 0 {
-		http.Error(w, "No ID", http.StatusBadRequest)
+		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
 	deletedTeacher, err := db.DeleteTeacher(id)
 	if err != nil {
 		if err.Error() == "teacher not found" {
-			http.Error(w, "Teacher not found", http.StatusNotFound)
+			http.Error(w, "teacher not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "unable to delete teacher", http.StatusInternalServerError)
 		return
 	}
 
@@ -205,17 +207,17 @@ func DeleteTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	var ids []int
 	err := json.NewDecoder(r.Body).Decode(&ids)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	deletedTeachers, err := db.DeleteTeachers(ids)
 	if err != nil {
 		if strings.Contains(err.Error(), "teacher not found") {
-			http.Error(w, err.Error(), http.StatusNotFound)
+			http.Error(w, "teacher not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "unable to delete teachers", http.StatusInternalServerError)
 		return
 	}
 
