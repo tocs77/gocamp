@@ -23,6 +23,51 @@ func checkValidField(field string) bool {
 	return validColumns[field]
 }
 
+func generateInsertQuery(model any) string {
+	modelType := reflect.TypeOf(model)
+	var columns, placeholders string
+	for i := 0; i < modelType.NumField(); i++ {
+		field := modelType.Field(i)
+		dbTag := field.Tag.Get("db")
+		if dbTag == "" {
+			continue
+		}
+		// Extract the column name from the db tag (remove metadata like "not_null", "unique", etc.)
+		columnName := strings.Split(dbTag, ",")[0]
+		if columnName == "id" {
+			continue
+		}
+
+		if columns != "" {
+			columns += ", "
+			placeholders += ", "
+		}
+		columns += columnName
+		placeholders += "?"
+	}
+	return fmt.Sprintf("INSERT INTO teachers (%s) VALUES (%s)", columns, placeholders)
+}
+
+func getStructValues(model any) []any {
+	modelType := reflect.TypeOf(model)
+	modelValue := reflect.ValueOf(model)
+	var values []any
+	for i := 0; i < modelType.NumField(); i++ {
+		field := modelType.Field(i)
+		dbTag := field.Tag.Get("db")
+		if dbTag == "" {
+			continue
+		}
+		// Extract the column name from the db tag (remove metadata like "not_null", "unique", etc.)
+		columnName := strings.Split(dbTag, ",")[0]
+		if columnName == "id" {
+			continue
+		}
+		values = append(values, modelValue.Field(i).Interface())
+	}
+	return values
+}
+
 func GetTeacherById(id int) (models.Teacher, error) {
 	row := Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
 	var teacher models.Teacher
@@ -117,7 +162,8 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 }
 
 func AddTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
-	stmt, err := Db.Prepare("INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?,?,?,?,?)")
+	query := generateInsertQuery(teachers[0])
+	stmt, err := Db.Prepare(query)
 	if err != nil {
 		return nil, utility.ErrorHandler(err, "database error")
 	}
@@ -125,7 +171,7 @@ func AddTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
 
 	addedTeachers := make([]models.Teacher, len(teachers))
 	for i, teacher := range teachers {
-		res, err := stmt.Exec(teacher.FirstName, teacher.LastName, teacher.Email, teacher.Class, teacher.Subject)
+		res, err := stmt.Exec(getStructValues(teacher)...)
 		if err != nil {
 			return nil, utility.ErrorHandler(err, "database error")
 		}
