@@ -218,6 +218,10 @@ func PatchTeacher(id int, updateFields map[string]any) (models.Teacher, error) {
 
 	// Apply patch updates to teacher
 	PatchTeacherFields(&teacher, updateFields)
+	err = teacher.Validate()
+	if err != nil {
+		return models.Teacher{}, utility.ErrorHandler(err, "invalid fields")
+	}
 
 	// Update database
 	stmt, err := Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")

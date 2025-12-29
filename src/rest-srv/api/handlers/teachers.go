@@ -72,6 +72,14 @@ func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, teacher := range newTeachers {
+		err = teacher.Validate()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
 	addedTeachers, err := db.AddTeachers(newTeachers)
 	if err != nil {
 		http.Error(w, "unable to add teachers", http.StatusInternalServerError)
@@ -101,7 +109,11 @@ func UpdateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-
+	err = updatedTeacher.Validate()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	updatedTeacher, err = db.UpdateTeacher(id, updatedTeacher)
 	if err != nil {
 		if err.Error() == "teacher not found" {
