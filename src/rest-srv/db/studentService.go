@@ -11,19 +11,18 @@ import (
 	"strings"
 )
 
-func checkValidField(field string) bool {
+func checkValidStudentField(field string) bool {
 	validColumns := map[string]bool{
 		"id":         true,
 		"first_name": true,
 		"last_name":  true,
 		"email":      true,
 		"class":      true,
-		"subject":    true,
 	}
 	return validColumns[field]
 }
 
-func getStructValues(model any) []any {
+func getStudentStructValues(model any) []any {
 	modelType := reflect.TypeOf(model)
 	modelValue := reflect.ValueOf(model)
 	var values []any
@@ -43,23 +42,23 @@ func getStructValues(model any) []any {
 	return values
 }
 
-func GetTeacherById(id int) (models.Teacher, error) {
-	row := Db.QueryRow("SELECT * FROM teachers WHERE id = ?", id)
-	var teacher models.Teacher
-	err := row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
+func GetStudentById(id int) (models.Student, error) {
+	row := Db.QueryRow("SELECT * FROM students WHERE id = ?", id)
+	var student models.Student
+	err := row.Scan(&student.ID, &student.FirstName, &student.LastName, &student.Email, &student.Class)
 	if err == sql.ErrNoRows {
-		return models.Teacher{}, utility.ErrorHandler(err, "teacher not found")
+		return models.Student{}, utility.ErrorHandler(err, "student not found")
 	}
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "unable to retrieve teacher")
+		return models.Student{}, utility.ErrorHandler(err, "unable to retrieve student")
 	}
-	return teacher, nil
+	return student, nil
 }
 
-// GetTeachers retrieves teachers with optional filters and sorting
+// GetStudents retrieves students with optional filters and sorting
 // filters: map of field name to filter value (e.g., map[string]string{"email": "test@example.com"})
 // sortParams: slice of strings in the format "field:asc" or "field:desc"
-func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teacher, error) {
+func GetStudents(filters map[string]string, sortParams []string) ([]models.Student, error) {
 	var query string
 	var orderByClauses []string
 	var whereClauses []string
@@ -67,7 +66,7 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 
 	// Build WHERE clauses from filters
 	for field, value := range filters {
-		if !checkValidField(field) {
+		if !checkValidStudentField(field) {
 			continue // Skip invalid field
 		}
 		if value != "" {
@@ -87,7 +86,7 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 		order := strings.TrimSpace(strings.ToUpper(parts[1]))
 
 		// Validate field
-		if !checkValidField(field) {
+		if !checkValidStudentField(field) {
 			continue // Skip invalid field
 		}
 
@@ -101,7 +100,7 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 	}
 
 	// Build query with WHERE and ORDER BY clauses
-	query = "SELECT * FROM teachers"
+	query = "SELECT * FROM students"
 	if len(whereClauses) > 0 {
 		query += " WHERE " + strings.Join(whereClauses, " AND ")
 	}
@@ -109,7 +108,7 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 		query += " ORDER BY " + strings.Join(orderByClauses, ", ")
 	}
 
-	teachersList := make([]models.Teacher, 0)
+	studentsList := make([]models.Student, 0)
 	var rows *sql.Rows
 	var err error
 
@@ -120,122 +119,126 @@ func GetTeachers(filters map[string]string, sortParams []string) ([]models.Teach
 		rows, err = Db.Query(query)
 	}
 	if err != nil {
-		return nil, utility.ErrorHandler(err, "unable to retrieve teachers")
+		return nil, utility.ErrorHandler(err, "unable to retrieve students")
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var teacher models.Teacher
-		err = rows.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
+		var student models.Student
+		err = rows.Scan(&student.ID, &student.FirstName, &student.LastName, &student.Email, &student.Class)
 		if err != nil {
-			return nil, utility.ErrorHandler(err, "unable to process teacher data")
+			return nil, utility.ErrorHandler(err, "unable to process student data")
 		}
-		teachersList = append(teachersList, teacher)
+		studentsList = append(studentsList, student)
 	}
 
-	return teachersList, nil
+	return studentsList, nil
 }
 
-func AddTeachers(teachers []models.Teacher) ([]models.Teacher, error) {
-	query := utility.GenerateInsertQuery(teachers[0], "teachers")
+func AddStudents(students []models.Student) ([]models.Student, error) {
+	query := utility.GenerateInsertQuery(students[0], "students")
 	stmt, err := Db.Prepare(query)
 	if err != nil {
 		return nil, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 
-	addedTeachers := make([]models.Teacher, len(teachers))
-	for i, teacher := range teachers {
-		res, err := stmt.Exec(getStructValues(teacher)...)
+	addedStudents := make([]models.Student, len(students))
+	for i, student := range students {
+		res, err := stmt.Exec(getStudentStructValues(student)...)
 		if err != nil {
+			if strings.Contains(err.Error(), "Error 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`classes`.`students`, CONSTRAINT `1` FOREIGN KEY (`class`) REFERENCES `teachers` (`class`))") {
+				return nil, utility.ErrorHandler(err, "class not found")
+			}
 			return nil, utility.ErrorHandler(err, "database error")
 		}
 		lastID, err := res.LastInsertId()
 		if err != nil {
 			return nil, utility.ErrorHandler(err, "database error")
 		}
-		addedTeachers[i] = teacher
-		addedTeachers[i].ID = int(lastID)
+		addedStudents[i] = student
+		addedStudents[i].ID = int(lastID)
 	}
 
-	return addedTeachers, nil
+	return addedStudents, nil
 }
 
-func PatchTeacherFields(teacher *models.Teacher, updatedFields map[string]any) {
-	teacherVal := reflect.ValueOf(teacher).Elem()
-	teacherType := teacherVal.Type()
+func PatchStudentFields(student *models.Student, updatedFields map[string]any) {
+	studentVal := reflect.ValueOf(student).Elem()
+	studentType := studentVal.Type()
 	for key, value := range updatedFields {
 		// Skip id field - it shouldn't be updated via PATCH
 		if key == "id" {
 			continue
 		}
-		for i := 0; i < teacherVal.NumField(); i++ {
-			field := teacherType.Field(i)
+		for i := 0; i < studentVal.NumField(); i++ {
+			field := studentType.Field(i)
 			jsonTag := field.Tag.Get("json")
 			// Extract the field name from the JSON tag (remove ",omitempty" if present)
 			jsonFieldName := strings.Split(jsonTag, ",")[0]
-			if jsonFieldName == key && teacherVal.Field(i).CanSet() {
-				teacherVal.Field(i).Set(reflect.ValueOf(value).Convert(teacherVal.Field(i).Type()))
+			if jsonFieldName == key && studentVal.Field(i).CanSet() {
+				studentVal.Field(i).Set(reflect.ValueOf(value).Convert(studentVal.Field(i).Type()))
 				break
 			}
 		}
 	}
 }
 
-func PatchTeacher(id int, updateFields map[string]any) (models.Teacher, error) {
-	teacher, err := GetTeacherById(id)
+func PatchStudent(id int, updateFields map[string]any) (models.Student, error) {
+	student, err := GetStudentById(id)
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Student{}, err
 	}
-	if teacher == (models.Teacher{}) {
-		return models.Teacher{}, utility.ErrorHandler(errors.New("teacher not found"), "teacher not found")
+	if student == (models.Student{}) {
+		return models.Student{}, utility.ErrorHandler(errors.New("student not found"), "student not found")
 	}
 
-	// Apply patch updates to teacher
-	PatchTeacherFields(&teacher, updateFields)
-	err = teacher.Validate()
+	// Apply patch updates to student
+	PatchStudentFields(&student, updateFields)
+	err = student.Validate()
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "invalid fields")
+		return models.Student{}, utility.ErrorHandler(err, "invalid fields")
 	}
 
 	// Update database
-	stmt, err := Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
+	stmt, err := Db.Prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, class = ? WHERE id = ?")
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "database error")
+		return models.Student{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(teacher.FirstName, teacher.LastName, teacher.Email, teacher.Class, teacher.Subject, teacher.ID)
+	_, err = stmt.Exec(student.FirstName, student.LastName, student.Email, student.Class, student.ID)
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "database error")
+		return models.Student{}, utility.ErrorHandler(err, "database error")
 	}
-	return teacher, nil
+	return student, nil
 }
 
-func UpdateTeacher(id int, updatedTeacher models.Teacher) (models.Teacher, error) {
-	// Verify teacher exists before updating
-	_, err := GetTeacherById(id)
+func UpdateStudent(id int, updatedStudent models.Student) (models.Student, error) {
+	// Verify student exists before updating
+	_, err := GetStudentById(id)
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Student{}, err
 	}
 
 	// Set the ID from the parameter
-	updatedTeacher.ID = id
+	updatedStudent.ID = id
 
 	// Update database
-	stmt, err := Db.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
+	stmt, err := Db.Prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, class = ? WHERE id = ?")
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "database error")
+		return models.Student{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(updatedTeacher.FirstName, updatedTeacher.LastName, updatedTeacher.Email, updatedTeacher.Class, updatedTeacher.Subject, id)
+	_, err = stmt.Exec(updatedStudent.FirstName, updatedStudent.LastName, updatedStudent.Email, updatedStudent.Class, id)
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "database error")
+		return models.Student{}, utility.ErrorHandler(err, "database error")
 	}
 
-	return updatedTeacher, nil
+	return updatedStudent, nil
 }
-func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
+
+func PatchStudents(updates []map[string]any) ([]models.Student, error) {
 	tx, err := Db.Begin()
 	if err != nil {
 		return nil, utility.ErrorHandler(err, "database error")
@@ -247,7 +250,7 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 		}
 	}()
 
-	updatedTeachers := make([]models.Teacher, 0, len(updates))
+	updatedStudents := make([]models.Student, 0, len(updates))
 	for _, update := range updates {
 		// Extract and validate ID
 		idVal, ok := update["id"]
@@ -279,29 +282,29 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 			return nil, utility.ErrorHandler(errors.New("no id"), "no id")
 		}
 
-		// Get existing teacher
-		existingTeacher, err := GetTeacherById(id)
+		// Get existing student
+		existingStudent, err := GetStudentById(id)
 		if err != nil {
 			rollbackNeeded = true
 			return nil, err
 		}
 
-		// Apply patch updates to teacher
-		PatchTeacherFields(&existingTeacher, update)
+		// Apply patch updates to student
+		PatchStudentFields(&existingStudent, update)
 
 		// Update database within transaction
-		stmt, err := tx.Prepare("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?")
+		stmt, err := tx.Prepare("UPDATE students SET first_name = ?, last_name = ?, email = ?, class = ? WHERE id = ?")
 		if err != nil {
 			rollbackNeeded = true
 			return nil, utility.ErrorHandler(err, "database error")
 		}
-		_, err = stmt.Exec(existingTeacher.FirstName, existingTeacher.LastName, existingTeacher.Email, existingTeacher.Class, existingTeacher.Subject, id)
+		_, err = stmt.Exec(existingStudent.FirstName, existingStudent.LastName, existingStudent.Email, existingStudent.Class, id)
 		stmt.Close()
 		if err != nil {
 			rollbackNeeded = true
 			return nil, utility.ErrorHandler(err, "database error")
 		}
-		updatedTeachers = append(updatedTeachers, existingTeacher)
+		updatedStudents = append(updatedStudents, existingStudent)
 	}
 
 	// Commit the transaction if all updates succeeded
@@ -312,39 +315,39 @@ func PatchTeachers(updates []map[string]any) ([]models.Teacher, error) {
 	}
 	rollbackNeeded = false
 
-	return updatedTeachers, nil
+	return updatedStudents, nil
 }
 
-func DeleteTeacher(id int) (models.Teacher, error) {
-	// Get teacher before deleting to return it
-	teacher, err := GetTeacherById(id)
+func DeleteStudent(id int) (models.Student, error) {
+	// Get student before deleting to return it
+	student, err := GetStudentById(id)
 	if err != nil {
-		return models.Teacher{}, err
+		return models.Student{}, err
 	}
 
-	stmt, err := Db.Prepare("DELETE FROM teachers WHERE id = ?")
+	stmt, err := Db.Prepare("DELETE FROM students WHERE id = ?")
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "database error")
+		return models.Student{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 
 	result, err := stmt.Exec(id)
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "database error")
+		return models.Student{}, utility.ErrorHandler(err, "database error")
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return models.Teacher{}, utility.ErrorHandler(err, "database error")
+		return models.Student{}, utility.ErrorHandler(err, "database error")
 	}
 	if rowsAffected == 0 {
-		return models.Teacher{}, utility.ErrorHandler(errors.New("teacher not found"), "teacher not found")
+		return models.Student{}, utility.ErrorHandler(errors.New("student not found"), "student not found")
 	}
 
-	return teacher, nil
+	return student, nil
 }
 
-func DeleteTeachers(ids []int) ([]models.Teacher, error) {
+func DeleteStudents(ids []int) ([]models.Student, error) {
 	tx, err := Db.Begin()
 	if err != nil {
 		return nil, utility.ErrorHandler(err, "database error")
@@ -356,16 +359,16 @@ func DeleteTeachers(ids []int) ([]models.Teacher, error) {
 		}
 	}()
 
-	deletedTeachers := make([]models.Teacher, 0, len(ids))
+	deletedStudents := make([]models.Student, 0, len(ids))
 	for _, id := range ids {
-		// Get teacher before deleting to return it
-		teacher, err := GetTeacherById(id)
+		// Get student before deleting to return it
+		student, err := GetStudentById(id)
 		if err != nil {
 			rollbackNeeded = true
 			return nil, err
 		}
 
-		stmt, err := tx.Prepare("DELETE FROM teachers WHERE id = ?")
+		stmt, err := tx.Prepare("DELETE FROM students WHERE id = ?")
 		if err != nil {
 			rollbackNeeded = true
 			return nil, utility.ErrorHandler(err, "database error")
@@ -384,10 +387,10 @@ func DeleteTeachers(ids []int) ([]models.Teacher, error) {
 		}
 		if rowsAffected == 0 {
 			rollbackNeeded = true
-			return nil, utility.ErrorHandler(errors.New("teacher not found"), "teacher not found")
+			return nil, utility.ErrorHandler(errors.New("student not found"), "student not found")
 		}
 
-		deletedTeachers = append(deletedTeachers, teacher)
+		deletedStudents = append(deletedStudents, student)
 	}
 
 	// Commit the transaction if all deletions succeeded
@@ -398,25 +401,5 @@ func DeleteTeachers(ids []int) ([]models.Teacher, error) {
 	}
 	rollbackNeeded = false
 
-	return deletedTeachers, nil
-}
-
-func GetTeacherStudents(id int) ([]models.Student, error) {
-	rows, err := Db.Query("SELECT * FROM students WHERE class = (SELECT class FROM teachers WHERE id = ?)", id)
-	if err != nil {
-		return nil, utility.ErrorHandler(err, "database error")
-	}
-	defer rows.Close()
-
-	students := make([]models.Student, 0)
-	for rows.Next() {
-		var student models.Student
-		err = rows.Scan(&student.ID, &student.FirstName, &student.LastName, &student.Email, &student.Class)
-		if err != nil {
-			return nil, utility.ErrorHandler(err, "unable to process student data")
-		}
-		students = append(students, student)
-	}
-
-	return students, nil
+	return deletedStudents, nil
 }

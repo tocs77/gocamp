@@ -245,3 +245,39 @@ func DeleteTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	}{Status: "success", Message: "Teachers deleted successfully", DeletedIDs: deletedIDs})
 	w.Header().Set("Content-Type", "application/json")
 }
+
+func GetTeacherStudentsHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	students, err := db.GetTeacherStudents(id)
+	if err != nil {
+		http.Error(w, "unable to retrieve students", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(struct {
+		Status string           `json:"status"`
+		Count  int              `json:"count"`
+		Data   []models.Student `json:"data"`
+	}{Status: "success", Count: len(students), Data: students})
+	w.Header().Set("Content-Type", "application/json")
+}
+
+func GetTeacherStudentsCountHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	students, err := db.GetTeacherStudents(id)
+	if err != nil {
+		http.Error(w, "unable to retrieve students", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(students)
+	w.Header().Set("Content-Type", "application/json")
+}
