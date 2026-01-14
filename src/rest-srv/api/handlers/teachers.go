@@ -273,11 +273,14 @@ func GetTeacherStudentsCountHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
-	students, err := db.GetTeacherStudents(id)
+	count, err := db.GetTeacherStudentsCount(id)
 	if err != nil {
-		http.Error(w, "unable to retrieve students", http.StatusInternalServerError)
+		http.Error(w, "unable to retrieve students count", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(students)
+	json.NewEncoder(w).Encode(struct {
+		Status string `json:"status"`
+		Count  int    `json:"count"`
+	}{Status: "success", Count: count})
 	w.Header().Set("Content-Type", "application/json")
 }

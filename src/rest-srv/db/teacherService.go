@@ -420,3 +420,21 @@ func GetTeacherStudents(id int) ([]models.Student, error) {
 
 	return students, nil
 }
+
+func GetTeacherStudentsCount(id int) (int, error) {
+	rows, err := Db.Query("SELECT COUNT(*) FROM students WHERE class = (SELECT class FROM teachers WHERE id = ?)", id)
+	if err != nil {
+		return 0, utility.ErrorHandler(err, "database error")
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		var count int
+		err = rows.Scan(&count)
+		if err != nil {
+			return 0, utility.ErrorHandler(err, "unable to process student data")
+		}
+		return count, nil
+	}
+	return 0, nil
+}

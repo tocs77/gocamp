@@ -93,7 +93,7 @@ func main() {
 		WhiteList:                   []string{"name", "age", "address", "sortBy", "sortOrder", "id", "first_name", "last_name", "email", "class", "subject"},
 	}
 
-	router := router.Router()
+	router := router.MainRouter()
 	middlewares := []utility.Middleware{
 		middlewares.Hpp(hpp),
 		middlewares.CompressionMiddleware,
