@@ -1,18 +1,23 @@
 package models
 
-import "database/sql"
+import (
+	"rest-srv/utility"
+)
 
 type Exec struct {
-	ID                     int            `json:"id,omitempty"`
-	FirstName              string         `json:"first_name,omitempty"`
-	LastName               string         `json:"last_name,omitempty"`
-	Email                  string         `json:"email,omitempty"`
-	Username               string         `json:"username,omitempty"`
-	Password               string         `json:"password,omitempty"`
-	PasswordChangedAt      sql.NullString `json:"passwordChangedAt,omitempty"`
-	UserCreatedAt          sql.NullString `json:"userCreatedAt,omitempty"`
-	PasswordResetToken     sql.NullString `json:"passwordResetToken,omitempty"`
-	PasswordResetExpiresAt sql.NullString `json:"passwordResetExpiresAt,omitempty"`
-	InactiveStatus         bool           `json:"inactiveStatus,omitempty"`
-	Role                   string         `json:"role,omitempty"`
+	ID                 int                `json:"id,omitempty" db:"id,primary_key,auto_increment"`
+	FirstName          string             `json:"first_name,omitempty" db:"first_name,not_null"`
+	LastName           string             `json:"last_name,omitempty" db:"last_name,not_null"`
+	Email              string             `json:"email,omitempty" db:"email,not_null,unique"`
+	Username           string             `json:"username,omitempty" db:"username,not_null,unique"`
+	Password           string             `json:"-" db:"password,not_null"`
+	PasswordChangedAt  utility.NullString `json:"password_changed_at,omitempty" db:"password_changed_at"`
+	UserCreatedAt      utility.NullString `json:"user_created_at,omitempty" db:"user_created_at"`
+	PasswordResetToken utility.NullString `json:"password_reset_token,omitempty" db:"password_reset_token"`
+	InactiveStatus     bool               `json:"inactive_status,omitempty" db:"inactive_status,not_null"`
+	Role               string             `json:"role,omitempty" db:"role,not_null"`
+}
+
+func (e *Exec) Validate() error {
+	return utility.ValidateBlank(e)
 }

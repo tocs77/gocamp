@@ -19,6 +19,10 @@ func ValidateBlank(value any) error {
 		if columnName == "id" {
 			continue
 		}
+		// Skip validation for bool fields since false is a valid default value
+		if field.Type.Kind() == reflect.Bool {
+			continue
+		}
 		if strings.Contains(dbTag, "not_null") {
 			if val.Field(i).IsZero() {
 				return fmt.Errorf("field %s is required", columnName)

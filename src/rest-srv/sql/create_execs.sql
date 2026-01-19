@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS execs(
   password_changed_at varchar(255),
   user_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   password_reset_token varchar(255),
-  inactive_status boolean NOT NULL,
+  password_token_expires varchar(255),
+  inactive_status boolean NOT NULL DEFAULT false,
   role varchar(50) NOT NULL,
   INDEX idx_email(email),
   INDEX idx_username(username)
