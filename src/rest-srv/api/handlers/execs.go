@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -76,14 +77,26 @@ func AddExecHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentTime := time.Now().Format(time.RFC3339)
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	for i := range newExecs {
 		newExecs[i].UserCreatedAt = utility.NullString{NullString: sql.NullString{String: currentTime, Valid: true}}
+		fmt.Println("Validating exec: ", newExecs[i])
 		err = newExecs[i].Validate()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		if newExecs[i].Password == "" {
+			http.Error(w, utility.ErrorHandler(errors.New("password is required"), "error adding exec").Error(), http.StatusBadRequest)
+			return
+		}
+
+		encodedHash, err := utility.HashPassword(newExecs[i].Password)
+		if err != nil {
+			http.Error(w, utility.ErrorHandler(err, "error adding exec").Error(), http.StatusInternalServerError)
+			return
+		}
+		newExecs[i].Password = encodedHash
 	}
 
 	addedExecs, err := db.AddExecs(newExecs)
