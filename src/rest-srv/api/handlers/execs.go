@@ -265,3 +265,53 @@ func DeleteExecsHandler(w http.ResponseWriter, r *http.Request) {
 	}{Status: "success", Message: "Execs deleted successfully", DeletedIDs: deletedIDs})
 	w.Header().Set("Content-Type", "application/json")
 }
+
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	// Data validation
+	var loginData struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&loginData)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Search for exec by username
+	exec, err := db.GetExecByUsername(loginData.Username)
+	if err != nil {
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
+	// is user active?
+	if exec.InactiveStatus {
+		http.Error(w, "user is inactive", http.StatusUnauthorized)
+		return
+	}
+
+	// verify password
+	valid, err := utility.ComparePassword(exec.Password, loginData.Password)
+	if err != nil {
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
+	if !valid {
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
+	// generate token
+	testToken, err := utility.SingToken(strconv.Itoa(exec.ID), exec.Username, exec.Role)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	// return token
+	w.Header().Set("Content-Type", "application/json")
+	http.SetCookie(w, &http.Cookie{Name: "Bearer", Value: testToken, Path: "/", HttpOnly: true, Secure: true, Expires: time.Now().Add(24 * time.Hour)})
+	json.NewEncoder(w).Encode(struct {
+		Status string `json:"status"`
+		Token  string `json:"token"`
+	}{Status: "success", Token: testToken})
+}

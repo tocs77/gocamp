@@ -62,6 +62,19 @@ func GetExecById(id int) (models.Exec, error) {
 	return exec, nil
 }
 
+func GetExecByUsername(username string) (models.Exec, error) {
+	row := Db.QueryRow("SELECT id, first_name, last_name, email, username, password, password_changed_at, user_created_at, password_reset_token, inactive_status, role FROM execs WHERE username = ?", username)
+	var exec models.Exec
+	err := row.Scan(&exec.ID, &exec.FirstName, &exec.LastName, &exec.Email, &exec.Username, &exec.Password, &exec.PasswordChangedAt, &exec.UserCreatedAt, &exec.PasswordResetToken, &exec.InactiveStatus, &exec.Role)
+	if err == sql.ErrNoRows {
+		return models.Exec{}, utility.ErrorHandler(err, "exec not found")
+	}
+	if err != nil {
+		return models.Exec{}, utility.ErrorHandler(err, "unable to retrieve exec")
+	}
+	return exec, nil
+}
+
 // GetExecs retrieves execs with optional filters and sorting
 // filters: map of field name to filter value (e.g., map[string]string{"email": "test@example.com"})
 // sortParams: slice of strings in the format "field:asc" or "field:desc"
