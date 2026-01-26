@@ -93,6 +93,16 @@ func main() {
 		WhiteList:                   []string{"name", "age", "address", "sortBy", "sortOrder", "id", "first_name", "last_name", "email", "class", "subject"},
 	}
 
+	excludeRoutes := []string{
+		"/execs/login",
+		"/execs/register",
+		"/execs/forgot-password",
+		"/execs/reset-password",
+		"/execs/verify-email",
+		"/execs/resend-verification-email",
+		"/execs/logout",
+	}
+
 	router := router.MainRouter()
 	middlewares := []utility.Middleware{
 		middlewares.Hpp(hpp),
@@ -101,6 +111,7 @@ func main() {
 		middlewares.ResponseTimMiddleware,
 		rl.RateLimiterMiddleware,
 		middlewares.Cors,
+		middlewares.ExcludeRoutes(middlewares.JwtMiddleware, excludeRoutes...),
 	}
 	secureMux := utility.ApplyMiddlewares(router, middlewares...)
 

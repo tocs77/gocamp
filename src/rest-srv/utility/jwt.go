@@ -2,13 +2,15 @@ package utility
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func SingToken(userId, username, role string) (string, error) {
+func SignToken(userId, username, role string) (string, error) {
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		return "", ErrorHandler(errors.New("JWT_SECRET is not set"), "Internal server error")
@@ -32,4 +34,26 @@ func SingToken(userId, username, role string) (string, error) {
 		return "", ErrorHandler(err, "Internal server error")
 	}
 	return signedToken, nil
+}
+
+func VerifyToken(token string) (jwt.MapClaims, error) {
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		return nil, ErrorHandler(errors.New("JWT_SECRET is not set"), "Internal server error")
+	}
+	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, ErrorHandler(errors.New("invalid signing method"), "invalid signing method")
+		}
+		return []byte(jwtSecret), nil
+	})
+	if err != nil {
+		return nil, ErrorHandler(err, "invalid token")
+	}
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, ErrorHandler(errors.New("invalid token claims"), "invalid token claims")
+	}
+	fmt.Println("claims: ", claims)
+	return claims, nil
 }
