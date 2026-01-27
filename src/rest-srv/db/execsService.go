@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"rest-srv/models"
 	"rest-srv/utility"
@@ -427,4 +428,37 @@ func DeleteExecs(ids []int) ([]models.Exec, error) {
 	rollbackNeeded = false
 
 	return deletedExecs, nil
+}
+
+func UpdateExecPassword(id int, oldPassword, newPassword string) (models.Exec, error) {
+	exec, err := GetExecById(id)
+	if err != nil {
+		return models.Exec{}, err
+	}
+	if exec == (models.Exec{}) {
+		return models.Exec{}, utility.ErrorHandler(errors.New("exec not found"), "exec not found")
+	}
+	valid, err := utility.ComparePassword(exec.Password, oldPassword)
+	if err != nil {
+		return models.Exec{}, utility.ErrorHandler(err, "invalid old password")
+	}
+	if !valid {
+		return models.Exec{}, utility.ErrorHandler(errors.New("invalid old password"), "invalid old password")
+	}
+	hashedPassword, err := utility.HashPassword(newPassword)
+	if err != nil {
+		return models.Exec{}, utility.ErrorHandler(err, "error hashing password")
+	}
+	exec.Password = hashedPassword
+	exec.PasswordChangedAt = utility.NullString{NullString: sql.NullString{String: time.Now().Format(time.RFC3339), Valid: true}}
+	stmt, err := Db.Prepare("UPDATE execs SET password = ?, password_changed_at = ? WHERE id = ?")
+	if err != nil {
+		return models.Exec{}, utility.ErrorHandler(err, "database error")
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(exec.Password, exec.PasswordChangedAt, id)
+	if err != nil {
+		return models.Exec{}, utility.ErrorHandler(err, "database error")
+	}
+	return exec, nil
 }

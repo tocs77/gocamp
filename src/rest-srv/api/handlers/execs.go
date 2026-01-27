@@ -302,18 +302,18 @@ func LoginExecHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// generate token
-	testToken, err := utility.SignToken(strconv.Itoa(exec.ID), exec.Username, exec.Role)
+	token, err := utility.SignToken(strconv.Itoa(exec.ID), exec.Username, exec.Role)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	// return token
 	w.Header().Set("Content-Type", "application/json")
-	http.SetCookie(w, &http.Cookie{Name: "Bearer", Value: testToken, Path: "/", HttpOnly: true, Secure: true, Expires: time.Now().Add(24 * time.Hour), SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: "Bearer", Value: token, Path: "/", HttpOnly: true, Secure: true, Expires: time.Now().Add(24 * time.Hour), SameSite: http.SameSiteStrictMode})
 	json.NewEncoder(w).Encode(struct {
 		Status string `json:"status"`
 		Token  string `json:"token"`
-	}{Status: "success", Token: testToken})
+	}{Status: "success", Token: token})
 }
 
 func LogoutExecHandler(w http.ResponseWriter, r *http.Request) {
@@ -323,4 +323,46 @@ func LogoutExecHandler(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}{Status: "success", Message: "Logged out successfully"})
 	w.Header().Set("Content-Type", "application/json")
+}
+
+func UpdateExecPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	type UpdateExecPasswordRequest struct {
+		OldPassword string `json:"oldpassword"`
+		NewPassword string `json:"newpassword"`
+	}
+	var updateExecPasswordRequest UpdateExecPasswordRequest
+	err := json.NewDecoder(r.Body).Decode(&updateExecPasswordRequest)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if updateExecPasswordRequest.OldPassword == "" || updateExecPasswordRequest.NewPassword == "" {
+		http.Error(w, "old password and new password are required", http.StatusBadRequest)
+		return
+	}
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	if id == 0 {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	exec, err := db.UpdateExecPassword(id, updateExecPasswordRequest.OldPassword, updateExecPasswordRequest.NewPassword)
+	if err != nil {
+		http.Error(w, "unable to update exec password", http.StatusInternalServerError)
+		return
+	}
+	token, err := utility.SignToken(strconv.Itoa(id), exec.Username, exec.Role)
+	if err != nil {
+		http.Error(w, "unable to sign token", http.StatusInternalServerError)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: "Bearer", Value: token, Path: "/", HttpOnly: true, Secure: true, Expires: time.Now().Add(24 * time.Hour), SameSite: http.SameSiteStrictMode})
+	json.NewEncoder(w).Encode(struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}{Status: "success", Message: "Exec password updated successfully"})
 }
