@@ -34,6 +34,14 @@ services:
     depends_on:
       - db
     # CloudBeaver CloudBeaver1
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: always
+    env_file:
+      - .env
 
 volumes:
   db_data_gorest:

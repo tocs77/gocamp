@@ -1,11 +1,15 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -365,4 +369,114 @@ func UpdateExecPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		Status  string `json:"status"`
 		Message string `json:"message"`
 	}{Status: "success", Message: "Exec password updated successfully"})
+}
+
+func ForgotExecPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	defer r.Body.Close()
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Email == "" {
+		http.Error(w, "email is required", http.StatusBadRequest)
+		return
+	}
+
+	exec, err := db.GetExecByEmail(req.Email)
+	if err != nil {
+		http.Error(w, "unable to retrieve exec", http.StatusInternalServerError)
+		return
+	}
+	if exec == (models.Exec{}) {
+		http.Error(w, "exec not found", http.StatusNotFound)
+		return
+	}
+	resetTokenExpiresIn := os.Getenv("RESET_TOKEN_EXPIRES_IN")
+	if resetTokenExpiresIn == "" {
+		http.Error(w, "reset token expires in is not set", http.StatusInternalServerError)
+		return
+	}
+	resetTokenExpiresInDuration, err := time.ParseDuration(resetTokenExpiresIn)
+	if err != nil {
+		http.Error(w, "invalid reset token expires in", http.StatusInternalServerError)
+		return
+	}
+	expiry := time.Now().Add(resetTokenExpiresInDuration)
+	tokenBytes := make([]byte, 32)
+	rand.Read(tokenBytes)
+	token := hex.EncodeToString(tokenBytes)
+	hashedToken := sha256.Sum256(tokenBytes)
+	hashedTokenString := hex.EncodeToString(hashedToken[:])
+
+	exec.PasswordResetToken = utility.NullString{NullString: sql.NullString{String: hashedTokenString, Valid: true}}
+	exec.PasswordTokenExpires = utility.NullString{NullString: sql.NullString{String: expiry.Format(time.RFC3339), Valid: true}}
+	_, err = db.UpdateExec(exec.ID, exec)
+	if err != nil {
+		http.Error(w, "unable to update exec password reset token", http.StatusInternalServerError)
+		return
+	}
+
+	resetPasswordURL := fmt.Sprintf("<a href='https://localhost:%s/execs/reset-password/reset/%s'>Reset Password</a>", os.Getenv("EXPOSE_PORT"), token)
+	message := fmt.Sprintf("Click the link to reset your password: %s", resetPasswordURL)
+	err = utility.SendMail(exec.Email, "Reset Password", message)
+	if err != nil {
+		http.Error(w, "unable to send reset password email", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}{Status: "success", Message: "Reset password email sent successfully"})
+	w.Header().Set("Content-Type", "application/json")
+}
+
+func ResetExecPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	if token == "" {
+		http.Error(w, "token is required", http.StatusBadRequest)
+		return
+	}
+	tokenBytes, err := hex.DecodeString(token)
+	if err != nil {
+		http.Error(w, "invalid token", http.StatusBadRequest)
+		return
+	}
+	hashedToken := sha256.Sum256(tokenBytes)
+	hashedTokenString := hex.EncodeToString(hashedToken[:])
+	exec, err := db.GetExecByPasswordResetToken(hashedTokenString)
+	if err != nil {
+		http.Error(w, "unable to retrieve exec", http.StatusInternalServerError)
+		return
+	}
+	if exec == (models.Exec{}) {
+		http.Error(w, "exec not found", http.StatusNotFound)
+		return
+	}
+
+	newPassword := "123456"
+	encodedHash, err := utility.HashPassword(newPassword)
+	if err != nil {
+		http.Error(w, "unable to hash password", http.StatusInternalServerError)
+		return
+	}
+	exec.Password = encodedHash
+	exec.PasswordChangedAt = utility.NullString{NullString: sql.NullString{String: time.Now().Format(time.RFC3339), Valid: true}}
+	exec.PasswordResetToken = utility.NullString{NullString: sql.NullString{String: "", Valid: false}}
+	exec.PasswordTokenExpires = utility.NullString{NullString: sql.NullString{String: "", Valid: false}}
+	_, err = db.UpdateExec(exec.ID, exec)
+	if err != nil {
+		http.Error(w, "unable to update exec password", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}{Status: "success", Message: "Exec password updated successfully"})
+	w.Header().Set("Content-Type", "application/json")
+	http.SetCookie(w, &http.Cookie{Name: "Bearer", Value: token, Path: "/", HttpOnly: true, Secure: true, Expires: time.Now().Add(24 * time.Hour), SameSite: http.SameSiteStrictMode})
 }

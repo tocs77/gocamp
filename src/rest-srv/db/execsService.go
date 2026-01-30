@@ -76,6 +76,34 @@ func GetExecByUsername(username string) (models.Exec, error) {
 	return exec, nil
 }
 
+func GetExecByEmail(email string) (models.Exec, error) {
+	row := Db.QueryRow("SELECT id, first_name, last_name, email, username, password, password_changed_at, user_created_at, password_reset_token, inactive_status, role FROM execs WHERE email = ?", email)
+	var exec models.Exec
+	err := row.Scan(&exec.ID, &exec.FirstName, &exec.LastName, &exec.Email, &exec.Username, &exec.Password, &exec.PasswordChangedAt, &exec.UserCreatedAt, &exec.PasswordResetToken, &exec.InactiveStatus, &exec.Role)
+	if err == sql.ErrNoRows {
+		return models.Exec{}, utility.ErrorHandler(err, "exec not found")
+	}
+
+	if err != nil {
+		return models.Exec{}, utility.ErrorHandler(err, "unable to retrieve exec")
+	}
+	return exec, nil
+}
+
+func GetExecByPasswordResetToken(token string) (models.Exec, error) {
+	expiresCompare := time.Now().Format("2006-01-02 15:04:05")
+	row := Db.QueryRow("SELECT id, first_name, last_name, email, username, password, password_changed_at, user_created_at, password_reset_token, password_token_expires, inactive_status, role FROM execs WHERE password_reset_token = ? AND password_token_expires > ?", token, expiresCompare)
+	var exec models.Exec
+	err := row.Scan(&exec.ID, &exec.FirstName, &exec.LastName, &exec.Email, &exec.Username, &exec.Password, &exec.PasswordChangedAt, &exec.UserCreatedAt, &exec.PasswordResetToken, &exec.PasswordTokenExpires, &exec.InactiveStatus, &exec.Role)
+	if err == sql.ErrNoRows {
+		return models.Exec{}, utility.ErrorHandler(err, "exec not found")
+	}
+	if err != nil {
+		return models.Exec{}, utility.ErrorHandler(err, "unable to retrieve exec")
+	}
+	return exec, nil
+}
+
 // GetExecs retrieves execs with optional filters and sorting
 // filters: map of field name to filter value (e.g., map[string]string{"email": "test@example.com"})
 // sortParams: slice of strings in the format "field:asc" or "field:desc"
@@ -197,6 +225,10 @@ func PatchExecFields(exec *models.Exec, updatedFields map[string]any) {
 		if key == "id" {
 			continue
 		}
+		// Skip user_created_at - it shouldn't be updated
+		if key == "user_created_at" {
+			continue
+		}
 		for i := 0; i < execVal.NumField(); i++ {
 			field := execType.Field(i)
 			jsonTag := field.Tag.Get("json")
@@ -227,12 +259,12 @@ func PatchExec(id int, updateFields map[string]any) (models.Exec, error) {
 	}
 
 	// Update database
-	stmt, err := Db.Prepare("UPDATE execs SET first_name = ?, last_name = ?, email = ?, username = ?, password = ?, password_changed_at = ?, user_created_at = ?, password_reset_token = ?, inactive_status = ?, role = ? WHERE id = ?")
+	stmt, err := Db.Prepare("UPDATE execs SET first_name = ?, last_name = ?, email = ?, username = ?, password = ?, password_changed_at = ?, password_reset_token = ?, inactive_status = ?, role = ? WHERE id = ?")
 	if err != nil {
 		return models.Exec{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(exec.FirstName, exec.LastName, exec.Email, exec.Username, exec.Password, exec.PasswordChangedAt, exec.UserCreatedAt, exec.PasswordResetToken, exec.InactiveStatus, exec.Role, exec.ID)
+	_, err = stmt.Exec(exec.FirstName, exec.LastName, exec.Email, exec.Username, exec.Password, exec.PasswordChangedAt, exec.PasswordResetToken, exec.InactiveStatus, exec.Role, exec.ID)
 	if err != nil {
 		return models.Exec{}, utility.ErrorHandler(err, "database error")
 	}
@@ -250,13 +282,13 @@ func UpdateExec(id int, updatedExec models.Exec) (models.Exec, error) {
 	updatedExec.ID = id
 
 	// Update database
-	stmt, err := Db.Prepare("UPDATE execs SET first_name = ?, last_name = ?, email = ?, username = ?, password = ?, password_changed_at = ?, user_created_at = ?, password_reset_token = ?, inactive_status = ?, role = ? WHERE id = ?")
+	stmt, err := Db.Prepare("UPDATE execs SET first_name = ?, last_name = ?, email = ?, username = ?, password = ?, password_changed_at = ?, password_reset_token = ?, password_token_expires = ?, inactive_status = ?, role = ? WHERE id = ?")
 	if err != nil {
 		return models.Exec{}, utility.ErrorHandler(err, "database error")
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(updatedExec.FirstName, updatedExec.LastName, updatedExec.Email, updatedExec.Username, updatedExec.Password, updatedExec.PasswordChangedAt, updatedExec.UserCreatedAt, updatedExec.PasswordResetToken, updatedExec.InactiveStatus, updatedExec.Role, id)
+	_, err = stmt.Exec(updatedExec.FirstName, updatedExec.LastName, updatedExec.Email, updatedExec.Username, updatedExec.Password, updatedExec.PasswordChangedAt, updatedExec.PasswordResetToken, updatedExec.PasswordTokenExpires, updatedExec.InactiveStatus, updatedExec.Role, id)
 	if err != nil {
 		return models.Exec{}, utility.ErrorHandler(err, "database error")
 	}
@@ -319,12 +351,12 @@ func PatchExecs(updates []map[string]any) ([]models.Exec, error) {
 		PatchExecFields(&existingExec, update)
 
 		// Update database within transaction
-		stmt, err := tx.Prepare("UPDATE execs SET first_name = ?, last_name = ?, email = ?, username = ?, password = ?, password_changed_at = ?, user_created_at = ?, password_reset_token = ?, inactive_status = ?, role = ? WHERE id = ?")
+		stmt, err := tx.Prepare("UPDATE execs SET first_name = ?, last_name = ?, email = ?, username = ?, password = ?, password_changed_at = ?, password_reset_token = ?, inactive_status = ?, role = ? WHERE id = ?")
 		if err != nil {
 			rollbackNeeded = true
 			return nil, utility.ErrorHandler(err, "database error")
 		}
-		_, err = stmt.Exec(existingExec.FirstName, existingExec.LastName, existingExec.Email, existingExec.Username, existingExec.Password, existingExec.PasswordChangedAt, existingExec.UserCreatedAt, existingExec.PasswordResetToken, existingExec.InactiveStatus, existingExec.Role, id)
+		_, err = stmt.Exec(existingExec.FirstName, existingExec.LastName, existingExec.Email, existingExec.Username, existingExec.Password, existingExec.PasswordChangedAt, existingExec.PasswordResetToken, existingExec.InactiveStatus, existingExec.Role, id)
 		stmt.Close()
 		if err != nil {
 			rollbackNeeded = true
