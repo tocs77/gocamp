@@ -58,12 +58,15 @@ func GetStudentById(id int) (models.Student, error) {
 // GetStudents retrieves students with optional filters and sorting
 // filters: map of field name to filter value (e.g., map[string]string{"email": "test@example.com"})
 // sortParams: slice of strings in the format "field:asc" or "field:desc"
-func GetStudents(filters map[string]string, sortParams []string) ([]models.Student, error) {
+func GetStudents(filters map[string]string, sortParams []string, limit int, page int) ([]models.Student, int, error) {
 	var query string
 	var orderByClauses []string
 	var whereClauses []string
 	var filterValues []any
-
+	var offset int
+	if page > 0 {
+		offset = (page - 1) * limit
+	}
 	// Build WHERE clauses from filters
 	for field, value := range filters {
 		if !checkValidStudentField(field) {
@@ -107,7 +110,10 @@ func GetStudents(filters map[string]string, sortParams []string) ([]models.Stude
 	if len(orderByClauses) > 0 {
 		query += " ORDER BY " + strings.Join(orderByClauses, ", ")
 	}
-
+	if limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		filterValues = append(filterValues, limit, offset)
+	}
 	studentsList := make([]models.Student, 0)
 	var rows *sql.Rows
 	var err error
@@ -119,7 +125,7 @@ func GetStudents(filters map[string]string, sortParams []string) ([]models.Stude
 		rows, err = Db.Query(query)
 	}
 	if err != nil {
-		return nil, utility.ErrorHandler(err, "unable to retrieve students")
+		return nil, 0, utility.ErrorHandler(err, "unable to retrieve students")
 	}
 	defer rows.Close()
 
@@ -127,12 +133,18 @@ func GetStudents(filters map[string]string, sortParams []string) ([]models.Stude
 		var student models.Student
 		err = rows.Scan(&student.ID, &student.FirstName, &student.LastName, &student.Email, &student.Class)
 		if err != nil {
-			return nil, utility.ErrorHandler(err, "unable to process student data")
+			return nil, 0, utility.ErrorHandler(err, "unable to process student data")
 		}
 		studentsList = append(studentsList, student)
 	}
+	totalCount := 0
+	row := Db.QueryRow("SELECT COUNT(*) FROM students")
+	err = row.Scan(&totalCount)
+	if err != nil {
+		totalCount = 0
+	}
 
-	return studentsList, nil
+	return studentsList, totalCount, nil
 }
 
 func AddStudents(students []models.Student) ([]models.Student, error) {

@@ -8,6 +8,8 @@ import (
 	"rest-srv/models"
 	"strconv"
 	"strings"
+
+	"rest-srv/utility"
 )
 
 func GetStudentHandler(w http.ResponseWriter, r *http.Request) {
@@ -32,6 +34,7 @@ func GetStudentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
+	limit, page := utility.GetPaginationParams(r)
 	sortByParams := r.URL.Query()["sortBy"]
 	queryParams := r.URL.Query()
 
@@ -49,7 +52,7 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	studentsList, err := db.GetStudents(filters, sortByParams)
+	studentsList, totalCount, err := db.GetStudents(filters, sortByParams, limit, page)
 	if err != nil {
 		http.Error(w, "unable to retrieve students", http.StatusInternalServerError)
 		return
@@ -59,7 +62,9 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 		Status string           `json:"status"`
 		Count  int              `json:"count"`
 		Data   []models.Student `json:"data"`
-	}{Status: "success", Count: len(studentsList), Data: studentsList}
+		Page   int              `json:"page"`
+		Limit  int              `json:"limit"`
+	}{Status: "success", Count: totalCount, Data: studentsList, Page: page, Limit: limit}
 	json.NewEncoder(w).Encode(response)
 	w.Header().Set("Content-Type", "application/json")
 }

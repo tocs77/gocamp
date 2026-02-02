@@ -90,7 +90,7 @@ func main() {
 		CheckQuery:                  true,
 		CheckBody:                   true,
 		CheckBodyOnlyForContentType: "application/x-www-form-urlencoded",
-		WhiteList:                   []string{"name", "age", "address", "sortBy", "sortOrder", "id", "first_name", "last_name", "email", "class", "subject"},
+		WhiteList:                   []string{"name", "age", "address", "sortBy", "sortOrder", "id", "first_name", "last_name", "email", "class", "subject", "limit", "page"},
 	}
 
 	excludeRoutes := []string{
