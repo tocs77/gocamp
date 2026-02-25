@@ -105,6 +105,7 @@ func main() {
 
 	router := router.MainRouter()
 	middlewares := []utility.Middleware{
+		middlewares.XSSMiddleware,
 		middlewares.Hpp(hpp),
 		middlewares.CompressionMiddleware,
 		middlewares.SecurityHeaders,

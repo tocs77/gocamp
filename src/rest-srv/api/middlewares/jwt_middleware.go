@@ -13,12 +13,16 @@ func JwtMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		token, err := utility.VerifyToken(cookie.Value)
+		tokenClaims, err := utility.VerifyToken(cookie.Value)
 		if err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		ctx := context.WithValue(r.Context(), "user", token)
+
+		ctx := context.WithValue(r.Context(), utility.ContextKey("role"), tokenClaims["role"])
+		ctx = context.WithValue(r.Context(), utility.ContextKey("exp"), tokenClaims["exp"])
+		ctx = context.WithValue(r.Context(), utility.ContextKey("username"), tokenClaims["user"])
+		ctx = context.WithValue(r.Context(), utility.ContextKey("userId"), tokenClaims["uid"])
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})

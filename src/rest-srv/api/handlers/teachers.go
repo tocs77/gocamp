@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"rest-srv/db"
 	"rest-srv/models"
+	"rest-srv/utility"
 	"strconv"
 	"strings"
 )
@@ -267,6 +268,17 @@ func GetTeacherStudentsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetTeacherStudentsCountHandler(w http.ResponseWriter, r *http.Request) {
+	allowedRoles := []string{"admin", "exec", "manager"}
+	authorized, err := utility.AuthorizeUser(r.Context().Value(utility.ContextKey("role")).(string), allowedRoles...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	if !authorized {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
