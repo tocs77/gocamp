@@ -74,9 +74,18 @@ func main() {
 	}
 	fmt.Println("Database connection established successfully")
 
-	//Load the SSL certificate and key
-
-	cert, err := tls.LoadX509KeyPair("cert.pem", "key.pem")
+	// SSL certificate and key (required)
+	certFile := os.Getenv("CERT_FILE")
+	if certFile == "" {
+		fmt.Println("Error: CERT_FILE environment variable is required")
+		os.Exit(1)
+	}
+	keyFile := os.Getenv("KEY_FILE")
+	if keyFile == "" {
+		fmt.Println("Error: KEY_FILE environment variable is required")
+		os.Exit(1)
+	}
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		fmt.Println("Error loading SSL certificate and key: ", err)
 		os.Exit(1)
@@ -85,6 +94,7 @@ func main() {
 		MinVersion:   tls.VersionTLS12,
 		Certificates: []tls.Certificate{cert},
 	}
+
 	rl := middlewares.NewRateLimiter(10, 2*time.Second)
 	hpp := middlewares.HPPOptions{
 		CheckQuery:                  true,
@@ -123,8 +133,7 @@ func main() {
 	}
 
 	http2.ConfigureServer(server, &http2.Server{})
-	fmt.Println("Starting server on port ", serverPort)
-
+	fmt.Println("Starting TLS server on port ", serverPort)
 	err = server.ListenAndServeTLS("", "")
 	if err != nil {
 		fmt.Println("Error starting TLS server: ", err)
