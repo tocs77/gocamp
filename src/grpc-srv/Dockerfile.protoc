@@ -1,0 +1,26 @@
+# Protocol Buffer Compiler - https://protobuf.dev/installation/
+# Go plugin - https://protobuf.dev/getting-started/gotutorial/
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go (Debian's golang is often old; install latest for protoc-gen-go)
+ARG GO_VERSION=1.23.4
+RUN curl -sSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Install Go protocol buffer plugin (must be in PATH for protoc)
+# https://protobuf.dev/getting-started/gotutorial/
+ENV GOPATH=/go
+ENV PATH="${PATH}:${GOPATH}/bin"
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+RUN protoc --version && protoc-gen-go --version
+
+WORKDIR /proto
+# Source in api/; generate flat into ./protoc (no protoc/api subdir)
+ENTRYPOINT ["/bin/sh", "-c", "cd api && protoc --proto_path=. --go_out=paths=source_relative:../protoc *.proto"]
