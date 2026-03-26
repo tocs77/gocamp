@@ -1,9 +1,11 @@
 syntax = "proto3";
 
 package main;
-option go_package = "grpc-srv/protoc";
+option go_package = "grpc-srv/protoc;mainpb";
 
-service MainService {
+import "user/user.proto";
+
+service Greeter {
     rpc SayHello(HelloRequest) returns (HelloResponse);
 }
 
@@ -19,4 +21,5 @@ message HelloResponse {
 message UserProfile {
   string username = 1;
   string email = 2;
+  user.User user = 3;
 }
