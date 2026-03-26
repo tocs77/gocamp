@@ -1,10 +1,10 @@
 services:
-  protoc:
-    build:
-      context: .
-      dockerfile: Dockerfile.protoc
+  grpc:
+    build: .
+    ports:
+      - "${EXPOSE_PORT}:${SERVER_PORT}"
     volumes:
-      - .:/proto
-    working_dir: /proto
-    # Run: docker compose run --rm protoc
-    # Version: docker compose run --rm --entrypoint protoc protoc --version
+      - ./:/app
+    restart: always
+    env_file:
+      - .env

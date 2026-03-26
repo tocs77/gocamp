@@ -1,0 +1,10 @@
+services:
+  protoc:
+    build:
+      context: .
+      dockerfile: Dockerfile.protoc
+    volumes:
+      - .:/proto
+    working_dir: /proto
+    # Run: docker compose run --rm protoc
+    # Version: docker compose run --rm --entrypoint protoc protoc --version

@@ -25,4 +25,4 @@ RUN protoc --version && protoc-gen-go --version
 
 WORKDIR /proto
 # Source in api/; *.proto only matches the api/ root — use find so user/user.proto is included
-ENTRYPOINT ["/bin/sh", "-c", "cd api && protoc --proto_path=. --go_out=paths=source_relative:../protoc $(find . -name '*.proto' | sort)"]
+ENTRYPOINT ["/bin/sh", "-c", "cd api && protoc --proto_path=. --go_out=paths=source_relative:../protoc --go-grpc_out=paths=source_relative:../protoc $(find . -name '*.proto' | sort)"]

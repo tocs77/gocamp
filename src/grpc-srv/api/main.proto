@@ -1,25 +1,17 @@
 syntax = "proto3";
 
-package main;
-option go_package = "grpc-srv/protoc;mainpb";
+package calculator;
+option go_package = "grpc-srv/protoc;mainapipb";
 
-import "user/user.proto";
-
-service Greeter {
-    rpc SayHello(HelloRequest) returns (HelloResponse);
+service Calculate {
+    rpc Add(AddRequest) returns (AddResponse);
 }
 
-message HelloRequest {
-    string name = 1;
-    int32 age = 2;  
+message AddRequest {
+    int32 a = 1;
+    int32 b = 2;
 }
 
-message HelloResponse {
-    string connf_message = 1;
-}
-
-message UserProfile {
-  string username = 1;
-  string email = 2;
-  user.User user = 3;
+message AddResponse {
+    int32 sum = 1;
 }
