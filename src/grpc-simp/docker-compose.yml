@@ -1,0 +1,22 @@
+services:
+  grpc-srv:
+    build:
+      context: ./grpc-srv
+    ports:
+      - "${EXPOSE_PORT:-50051}:${SERVER_PORT:-50051}"
+    volumes:
+      - ./grpc-srv:/app
+    restart: always
+    env_file:
+      - ./grpc-srv/.env
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-50051}
+
+  grpc-client:
+    build:
+      context: ./grpc-client
+    volumes:
+      - ./grpc-client:/app
+    restart: always
+    depends_on:
+      - grpc-srv
