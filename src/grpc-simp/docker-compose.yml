@@ -1,11 +1,13 @@
 services:
   grpc-srv:
     build:
-      context: ./grpc-srv
+      context: .
+      dockerfile: ./grpc-srv/Dockerfile
     ports:
       - "${EXPOSE_PORT:-50051}:${SERVER_PORT:-50051}"
     volumes:
-      - ./grpc-srv:/app
+      - ./:/workspace
+    working_dir: /workspace/grpc-srv
     restart: always
     env_file:
       - ./grpc-srv/.env
@@ -14,9 +16,11 @@ services:
 
   grpc-client:
     build:
-      context: ./grpc-client
+      context: .
+      dockerfile: ./grpc-client/Dockerfile
     volumes:
-      - ./grpc-client:/app
+      - ./:/workspace
+    working_dir: /workspace/grpc-client
     restart: always
     depends_on:
       - grpc-srv

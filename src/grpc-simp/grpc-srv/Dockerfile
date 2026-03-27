@@ -1,7 +1,9 @@
 FROM golang
-WORKDIR /app
+WORKDIR /workspace/grpc-srv
 RUN go install github.com/air-verse/air@latest
-COPY go.mod go.sum ./
+COPY go.work /workspace/go.work
+COPY grpc-srv/go.mod grpc-srv/go.sum /workspace/grpc-srv/
+COPY grpc-client/go.mod grpc-client/go.sum /workspace/grpc-client/
 
 RUN go mod download
 
