@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	pb "grpc-srv/protoc"
 )
@@ -36,7 +37,23 @@ func main() {
 
 	log.Printf("gRPC server listening on :%d", port)
 
-	grpcServer := grpc.NewServer()
+	// SSL certificate and key (required)
+	certFile := os.Getenv("CERT_FILE")
+	if certFile == "" {
+		fmt.Println("Error: CERT_FILE environment variable is required")
+		os.Exit(1)
+	}
+	keyFile := os.Getenv("KEY_FILE")
+	if keyFile == "" {
+		fmt.Println("Error: KEY_FILE environment variable is required")
+		os.Exit(1)
+	}
+
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		log.Fatalf("Failed to load TLS keys: %v", err)
+	}
+	grpcServer := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterCalculateServer(grpcServer, &server{})
 	err = grpcServer.Serve(listener)
 	if err != nil {

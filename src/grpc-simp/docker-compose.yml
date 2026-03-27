@@ -22,5 +22,8 @@ services:
       - ./:/workspace
     working_dir: /workspace/grpc-client
     restart: always
+    environment:
+      CERT_FILE: /workspace/cerificates/cert.pem
+      TLS_SERVER_NAME: grpc-srv
     depends_on:
       - grpc-srv

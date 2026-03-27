@@ -3,16 +3,31 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	pb "grpc-srv/protoc"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
-	conn, err := grpc.NewClient("grpc-srv:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	certFile := os.Getenv("CERT_FILE")
+	if certFile == "" {
+		certFile = "/workspace/cerificates/cert.pem"
+	}
+	serverName := os.Getenv("TLS_SERVER_NAME")
+	if serverName == "" {
+		serverName = "grpc-srv"
+	}
+
+	creds, err := credentials.NewClientTLSFromFile(certFile, serverName)
+	if err != nil {
+		log.Fatalf("Failed to load TLS cert: %v", err)
+	}
+
+	conn, err := grpc.NewClient("grpc-srv:50051", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
