@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package farewell;
+option go_package = "grpc-srv/farewell;mainapipb";
+
+service AufWiedersehen {
+    rpc BigGoodBye(GoodByeRequest) returns (GoodByeResponse);
+}
+
+message GoodByeRequest {
+    string name = 1;
+}
+
+message GoodByeResponse {
+    string message = 2;
+}

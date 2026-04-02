@@ -12,14 +12,25 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	pb "grpc-srv/protoc"
+	farewellpb "grpc-srv/protoc/farewell"
 )
 
 type server struct {
 	pb.UnimplementedCalculateServer
+	pb.UnimplementedGreeterServer
+	farewellpb.UnimplementedAufWiedersehenServer
 }
 
 func (s *server) Add(ctx context.Context, req *pb.AddRequest) (*pb.AddResponse, error) {
 	return &pb.AddResponse{Sum: req.A + req.B}, nil
+}
+
+func (s *server) Greet(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
+	return &pb.HelloResponse{Message: "Hello, " + req.Name}, nil
+}
+
+func (s *server) BigGoodBye(ctx context.Context, req *farewellpb.GoodByeRequest) (*farewellpb.GoodByeResponse, error) {
+	return &farewellpb.GoodByeResponse{Message: "Goodbye, " + req.Name}, nil
 }
 
 func main() {
@@ -54,7 +65,10 @@ func main() {
 		log.Fatalf("Failed to load TLS keys: %v", err)
 	}
 	grpcServer := grpc.NewServer(grpc.Creds(creds))
-	pb.RegisterCalculateServer(grpcServer, &server{})
+	s := &server{}
+	pb.RegisterCalculateServer(grpcServer, s)
+	pb.RegisterGreeterServer(grpcServer, s)
+	farewellpb.RegisterAufWiedersehenServer(grpcServer, s)
 	err = grpcServer.Serve(listener)
 	if err != nil {
 		log.Fatalf("Failed to serve: %v", err)

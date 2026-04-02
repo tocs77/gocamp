@@ -1,10 +1,17 @@
 syntax = "proto3";
 
+import "greeter.proto";
+
 package calculator;
-option go_package = "grpc-srv/protoc;mainapipb";
+option go_package = "grpc-srv/;mainapipb";
+
 
 service Calculate {
     rpc Add(AddRequest) returns (AddResponse);
+}
+
+service Greeter {
+    rpc Greet(HelloRequest) returns (HelloResponse);
 }
 
 message AddRequest {

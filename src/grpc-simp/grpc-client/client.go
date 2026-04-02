@@ -7,6 +7,7 @@ import (
 	"time"
 
 	pb "grpc-srv/protoc"
+	farewellpb "grpc-srv/protoc/farewell"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -42,4 +43,18 @@ func main() {
 		log.Fatalf("Failed to call Add: %v", err)
 	}
 	log.Printf("Add result: %d", res.GetSum())
+
+	greeterClient := pb.NewGreeterClient(conn)
+	greetRes, err := greeterClient.Greet(ctx, &pb.HelloRequest{Name: "World"})
+	if err != nil {
+		log.Fatalf("Failed to call Greet: %v", err)
+	}
+	log.Printf("Greet result: %s", greetRes.GetMessage())
+
+	farewellClient := farewellpb.NewAufWiedersehenClient(conn)
+	farewellRes, err := farewellClient.BigGoodBye(ctx, &farewellpb.GoodByeRequest{Name: "World"})
+	if err != nil {
+		log.Fatalf("Failed to call BigGoodBye: %v", err)
+	}
+	log.Printf("BigGoodBye result: %s", farewellRes.GetMessage())
 }
