@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -39,6 +40,26 @@ func (s *server) GenerateFibonacci(req *pb.FibonacciRequest, stream pb.Calculate
 	}
 	return nil
 }
+
+func (s *server) SendNumbers(stream pb.Calculate_SendNumbersServer) error {
+	sum := 0
+	for {
+		number, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		sum += int(number.Number)
+		err = stream.Send(&pb.NumberResponse{Number: number.Number, Sum: int32(sum)})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *server) Greet(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
 	return &pb.HelloResponse{Message: "Hello, " + req.Name}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -55,7 +56,7 @@ func main() {
 	// Generate Fibonacci
 
 	fibonacciClient := pb.NewCalculateClient(conn)
-	fibonacciRes, err := fibonacciClient.GenerateFibonacci(ctx, &pb.FibonacciRequest{N: 10})
+	fibonacciRes, err := fibonacciClient.GenerateFibonacci(ctx, &pb.FibonacciRequest{N: 4})
 	if err != nil {
 		log.Fatalf("Failed to call GenerateFibonacci: %v", err)
 	}
@@ -68,6 +69,30 @@ func main() {
 			log.Fatalf("Failed to receive Fibonacci: %v", err)
 		}
 		log.Printf("Fibonacci result: %d", fibonacci.Number)
+	}
+
+	// Send Numbers
+	numbersClient := pb.NewCalculateClient(conn)
+	numbersStream, err := numbersClient.SendNumbers(ctx)
+	if err != nil {
+		log.Fatalf("Failed to call SendNumbers: %v", err)
+	}
+	defer numbersStream.CloseSend()
+
+	for range 10 {
+		err := numbersStream.Send(&pb.NumberRequest{Number: int32(rand.Intn(100))})
+		if err != nil {
+			log.Fatalf("Failed to send Number: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+		numbers, err := numbersStream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("Failed to receive Numbers: %v", err)
+		}
+		log.Printf("Received number: %d, sum: %d", numbers.GetNumber(), numbers.GetSum())
 	}
 
 	// Farewell
