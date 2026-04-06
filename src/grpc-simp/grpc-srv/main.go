@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -25,6 +26,19 @@ func (s *server) Add(ctx context.Context, req *pb.AddRequest) (*pb.AddResponse, 
 	return &pb.AddResponse{Sum: req.A + req.B}, nil
 }
 
+func (s *server) GenerateFibonacci(req *pb.FibonacciRequest, stream pb.Calculate_GenerateFibonacciServer) error {
+	n := int(req.N)
+	a, b := 0, 1
+	for range n {
+		err := stream.Send(&pb.FibonacciResponse{Number: int32(a)})
+		if err != nil {
+			return err
+		}
+		a, b = b, a+b
+		time.Sleep(1 * time.Second)
+	}
+	return nil
+}
 func (s *server) Greet(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
 	return &pb.HelloResponse{Message: "Hello, " + req.Name}, nil
 }

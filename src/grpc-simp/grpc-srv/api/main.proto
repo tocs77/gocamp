@@ -8,10 +8,19 @@ option go_package = "grpc-srv/;mainapipb";
 
 service Calculate {
     rpc Add(AddRequest) returns (AddResponse);
+    rpc GenerateFibonacci(FibonacciRequest) returns (stream FibonacciResponse);
 }
 
 service Greeter {
     rpc Greet(HelloRequest) returns (HelloResponse);
+}
+
+message FibonacciRequest {
+    int32 n = 1;
+}
+
+message FibonacciResponse {
+    int32 number = 1;
 }
 
 message AddRequest {

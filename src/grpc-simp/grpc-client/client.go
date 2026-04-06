@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -35,7 +36,7 @@ func main() {
 	defer conn.Close()
 
 	client := pb.NewCalculateClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	res, err := client.Add(ctx, &pb.AddRequest{A: 10, B: 20})
@@ -51,6 +52,25 @@ func main() {
 	}
 	log.Printf("Greet result: %s", greetRes.GetMessage())
 
+	// Generate Fibonacci
+
+	fibonacciClient := pb.NewCalculateClient(conn)
+	fibonacciRes, err := fibonacciClient.GenerateFibonacci(ctx, &pb.FibonacciRequest{N: 10})
+	if err != nil {
+		log.Fatalf("Failed to call GenerateFibonacci: %v", err)
+	}
+	for {
+		fibonacci, err := fibonacciRes.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("Failed to receive Fibonacci: %v", err)
+		}
+		log.Printf("Fibonacci result: %d", fibonacci.Number)
+	}
+
+	// Farewell
 	farewellClient := farewellpb.NewAufWiedersehenClient(conn)
 	farewellRes, err := farewellClient.BigGoodBye(ctx, &farewellpb.GoodByeRequest{Name: "World"})
 	if err != nil {
