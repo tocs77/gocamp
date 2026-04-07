@@ -12,6 +12,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	_ "google.golang.org/grpc/encoding/gzip"
 
 	pb "grpc-srv/protoc"
 	farewellpb "grpc-srv/protoc/farewell"

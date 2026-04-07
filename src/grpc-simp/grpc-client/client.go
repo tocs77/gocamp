@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 		log.Fatalf("Failed to load TLS cert: %v", err)
 	}
 
-	conn, err := grpc.NewClient("grpc-srv:50051", grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient("grpc-srv:50051", grpc.WithTransportCredentials(creds), grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
