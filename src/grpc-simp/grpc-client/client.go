@@ -95,6 +95,35 @@ func main() {
 		log.Printf("Received number: %d, sum: %d", numbers.GetNumber(), numbers.GetSum())
 	}
 
+	// Chat
+	chatClient := pb.NewCalculateClient(conn)
+	chatStream, err := chatClient.Chat(ctx)
+	if err != nil {
+		log.Fatalf("Failed to call Chat: %v", err)
+	}
+	defer chatStream.CloseSend()
+
+	go func() {
+		for {
+			message, err := chatStream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("Failed to receive Chat: %v", err)
+			}
+			log.Printf("Received message: %s", message.GetMessage())
+		}
+	}()
+
+	var messages = []string{"Hello, World!", "Hello, Go!", "Hello, Channels!"}
+
+	for _, message := range messages {
+		chatStream.Send(&pb.ChatMessage{Message: message})
+		time.Sleep(1 * time.Second)
+	}
+	chatStream.CloseSend()
+
 	// Farewell
 	farewellClient := farewellpb.NewAufWiedersehenClient(conn)
 	farewellRes, err := farewellClient.BigGoodBye(ctx, &farewellpb.GoodByeRequest{Name: "World"})

@@ -68,6 +68,22 @@ func (s *server) BigGoodBye(ctx context.Context, req *farewellpb.GoodByeRequest)
 	return &farewellpb.GoodByeResponse{Message: "Goodbye, " + req.Name}, nil
 }
 
+func (s *server) Chat(stream pb.Calculate_ChatServer) error {
+	for {
+		message, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("Failed to receive message: %v", err)
+			return err
+		}
+		log.Printf("Received message: %s", message.Message)
+		stream.Send(&pb.ChatMessage{Message: "Received message: " + message.Message})
+	}
+	return nil
+}
+
 func main() {
 	port := 50051
 	if portStr := os.Getenv("SERVER_PORT"); portStr != "" {

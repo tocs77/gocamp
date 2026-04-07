@@ -10,6 +10,7 @@ service Calculate {
     rpc Add(AddRequest) returns (AddResponse);
     rpc GenerateFibonacci(FibonacciRequest) returns (stream FibonacciResponse);
     rpc SendNumbers (stream NumberRequest) returns (stream NumberResponse);
+    rpc Chat(stream ChatMessage) returns (stream ChatMessage);
 }
 
 service Greeter {
@@ -40,4 +41,8 @@ message AddRequest {
 
 message AddResponse {
     int32 sum = 1;
+}
+
+message ChatMessage {
+    string message = 1;
 }
