@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	pb "grpc-srv/protoc"
 	farewellpb "grpc-srv/protoc/farewell"
@@ -25,6 +28,20 @@ type server struct {
 }
 
 func (s *server) Add(ctx context.Context, req *pb.AddRequest) (*pb.AddResponse, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "metadata is not provided")
+	}
+	token := md.Get("authorization")
+	fmt.Println("Got token an adding: ", token)
+	if len(token) == 0 {
+		return nil, status.Errorf(codes.Unauthenticated, "token is not provided")
+	}
+	// Set response metadata
+	respMd := metadata.Pairs("result", "success")
+	grpc.SendHeader(ctx, respMd)
+	trailer := metadata.Pairs("trailer", "trailer")
+	grpc.SetTrailer(ctx, trailer)
 	return &pb.AddResponse{Sum: req.A + req.B}, nil
 }
 

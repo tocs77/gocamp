@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/metadata"
 )
 
 func main() {
@@ -41,12 +42,28 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	res, err := client.Add(ctx, &pb.AddRequest{A: 10, B: 20})
+	md := metadata.Pairs("authorization", "Bearer=asjlkjewlje")
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	var respHdr metadata.MD
+	var respTrailer metadata.MD
+	res, err := client.Add(ctx, &pb.AddRequest{A: 10, B: 20}, grpc.Header(&respHdr), grpc.Trailer(&respTrailer))
 	if err != nil {
 		log.Fatalf("Failed to call Add: %v", err)
 	}
+	token := respHdr.Get("result")
+	if len(token) == 0 {
+		log.Fatalf("Failed to get result from response metadata")
+	}
+	log.Printf("Got result: %s", token)
 	log.Printf("Add result: %d", res.GetSum())
+	trailer := respTrailer.Get("trailer")
+	if len(trailer) == 0 {
+		log.Fatalf("Failed to get trailer from response metadata")
+	}
+	log.Printf("Got trailer: %s", trailer)
 
+	// Greeter
 	greeterClient := pb.NewGreeterClient(conn)
 	greetRes, err := greeterClient.Greet(ctx, &pb.HelloRequest{Name: "World"})
 	if err != nil {
