@@ -2,19 +2,25 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
 	pb "grpc-srv/protoc"
@@ -25,6 +31,53 @@ type server struct {
 	pb.UnimplementedCalculateServer
 	pb.UnimplementedGreeterServer
 	farewellpb.UnimplementedAufWiedersehenServer
+}
+
+var globalCreds credentials.TransportCredentials
+var globalGatewayDialOpts []grpc.DialOption
+var certFile string
+var keyFile string
+
+func init() {
+	// SSL certificate and key (required)
+	//globalCreds = insecure.NewCredentials()
+	certFile = os.Getenv("CERT_FILE")
+	if certFile == "" {
+		fmt.Println("Error: CERT_FILE environment variable is required")
+		os.Exit(1)
+	}
+	keyFile = os.Getenv("KEY_FILE")
+	if keyFile == "" {
+		fmt.Println("Error: KEY_FILE environment variable is required")
+		os.Exit(1)
+	}
+
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		log.Fatalf("Failed to load TLS keys: %v", err)
+	}
+	globalCreds = creds
+
+	tlsServerName := os.Getenv("TLS_SERVER_NAME")
+	if tlsServerName == "" {
+		tlsServerName = "localhost"
+	}
+
+	caCertData, err := os.ReadFile(certFile)
+	if err != nil {
+		log.Fatalf("Failed to read CERT_FILE: %v", err)
+	}
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caCertData) {
+		log.Fatal("Failed to parse CERT_FILE as PEM CA certificate")
+	}
+	clientTLSConfig := &tls.Config{
+		RootCAs:    certPool,
+		ServerName: tlsServerName,
+	}
+	globalGatewayDialOpts = []grpc.DialOption{
+		grpc.WithTransportCredentials(credentials.NewTLS(clientTLSConfig)),
+	}
 }
 
 func (s *server) Add(ctx context.Context, req *pb.AddRequest) (*pb.AddResponse, error) {
@@ -102,7 +155,8 @@ func (s *server) Chat(stream pb.Calculate_ChatServer) error {
 	return nil
 }
 
-func main() {
+func runGrpcServer(wg *sync.WaitGroup) {
+	defer wg.Done()
 	port := 50051
 	if portStr := os.Getenv("SERVER_PORT"); portStr != "" {
 		if p, err := strconv.Atoi(portStr); err == nil {
@@ -117,24 +171,9 @@ func main() {
 
 	log.Printf("gRPC server listening on :%d", port)
 
-	// SSL certificate and key (required)
-	certFile := os.Getenv("CERT_FILE")
-	if certFile == "" {
-		fmt.Println("Error: CERT_FILE environment variable is required")
-		os.Exit(1)
-	}
-	keyFile := os.Getenv("KEY_FILE")
-	if keyFile == "" {
-		fmt.Println("Error: KEY_FILE environment variable is required")
-		os.Exit(1)
-	}
-
-	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
-	if err != nil {
-		log.Fatalf("Failed to load TLS keys: %v", err)
-	}
-	grpcServer := grpc.NewServer(grpc.Creds(creds))
+	grpcServer := grpc.NewServer(grpc.Creds(globalCreds))
 	s := &server{}
+	reflection.Register(grpcServer)
 	pb.RegisterCalculateServer(grpcServer, s)
 	pb.RegisterGreeterServer(grpcServer, s)
 	farewellpb.RegisterAufWiedersehenServer(grpcServer, s)
@@ -142,5 +181,47 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
-	fmt.Println("Server started on port ", port)
+	fmt.Println("Server closed on port ", port)
+}
+
+func runGrpcGatewayServer(wg *sync.WaitGroup) {
+	defer wg.Done()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	mux := runtime.NewServeMux()
+
+	grpcPort := 50051
+	if portStr := os.Getenv("SERVER_PORT"); portStr != "" {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			grpcPort = p
+		}
+	}
+	target := fmt.Sprintf(":%d", grpcPort)
+	err := pb.RegisterGreeterHandlerFromEndpoint(ctx, mux, target, globalGatewayDialOpts)
+	if err != nil {
+		log.Fatalf("Failed to register Greeter handler: %v", err)
+	}
+	port := 8080
+	if portStr := os.Getenv("HTTP_PORT"); portStr != "" {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			port = p
+		}
+	}
+
+	log.Printf("gRPC-Gateway listening on %s", fmt.Sprintf("https://localhost:%d", port))
+	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", port), certFile, keyFile, mux)
+	if err != nil {
+		log.Fatalf("Failed to listen and serve: %v", err)
+	}
+
+}
+
+func main() {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go runGrpcServer(&wg)
+	wg.Add(1)
+	go runGrpcGatewayServer(&wg)
+	wg.Wait()
+	log.Println("Server stopped")
 }

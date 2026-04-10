@@ -5,6 +5,7 @@ services:
       dockerfile: ./grpc-srv/Dockerfile
     ports:
       - "${EXPOSE_PORT:-50051}:${SERVER_PORT:-50051}"
+      - "${HTTP_PORT:-8086}:${HTTP_PORT:-8086}"
     volumes:
       - ./:/workspace
     working_dir: /workspace/grpc-srv
