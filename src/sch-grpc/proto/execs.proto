@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+import "buf/validate/validate.proto";
+import "sorts.proto";
+
+package main;
+
+option go_package = "proro/gen;schapipb";
+
+service ExecsService {
+  rpc GetExecs(GetExecsRequest) returns (Execs);
+  rpc AddExecs(Execs) returns (Execs);
+  rpc UpdateExecs(Execs) returns (Execs);
+  rpc DeleteExecs(ExecsIds) returns (DeleteExecsConfirmation);
+
+  rpc Login(ExecLoginRequest) returns (ExecLoginResponse);
+  rpc Logout(EmptyRequest) returns (ExecLogoutResponse);
+  rpc UpatePassword(UpdatePasswordRequest) returns (UpdatePasswordResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (Confirmation);
+  rpc ForgotPassword(ForgotPasswordRequest) returns (ForgotPasswordResponse);
+  rpc DeactivateUser(ExecsIds) returns (Confirmation);
+}
+
+message ExecId {
+  string id = 1;
+}
+
+message ExecsIds {
+  repeated ExecId ids = 1;
+}
+
+message DeleteExecsConfirmation {
+  string status = 1;
+  repeated ExecId deleted_ids = 2;
+}
+
+message GetExecsRequest {
+  Execs execs = 1;
+  repeated SortField sort_by=2;
+}
+
+message Exec {
+  string id = 1;
+  string first_name = 2[(buf.validate.field).string.min_len = 1];
+  string last_name = 3[(buf.validate.field).string.min_len = 1];
+  string email = 4;
+  string username = 5[(buf.validate.field).string.min_len = 1];
+  string password = 6[(buf.validate.field).string.min_len = 3];
+  string password_changed_at = 7;
+  string user_created_at = 8;
+  string password_reset_token = 9;
+  string password_token_expires = 10;
+  string role = 11;
+  bool inactive_status = 12;
+}
+
+message Execs {
+  repeated Exec execs = 1;
+}
+message EmptyRequest {}
+
+message ExecLogoutResponse {
+  bool logged_out = 1;
+}
+
+message UpdatePasswordRequest {
+  string id = 1;
+  string current_password = 2[(buf.validate.field).string.min_len = 3];
+  string new_password = 3[(buf.validate.field).string.min_len = 3];
+}
+
+message UpdatePasswordResponse {
+  bool password_updated = 1;
+  string token = 2;
+}
+
+message ResetPasswordRequest {
+  string reset_code = 1;
+  string new_password = 2[(buf.validate.field).string.min_len = 3];
+  string confirm_password = 3[(buf.validate.field).string.min_len = 3];
+}
+
+message Confirmation {
+  bool confirmation = 1;
+}
+
+message ForgotPasswordRequest {
+  string email = 1;
+}
+
+message ForgotPasswordResponse {
+  bool confirmation = 1;
+  string message = 2;
+}
+
+message ExecLoginRequest {
+  string username = 1;
+  string password = 2[(buf.validate.field).string.min_len = 3];
+}
+
+message ExecLoginResponse {
+  bool status = 1;
+  string token = 2;
+}

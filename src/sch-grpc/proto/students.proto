@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+import "buf/validate/validate.proto";
+import "sorts.proto";
+package main;
+
+option go_package = "proro/gen;schapipb";
+
+service StudentsService {
+  rpc GetStudents(GetStudentsRequest) returns (Students);
+  rpc AddStudents(Students) returns (Students);
+  rpc UpdateStudents(Students) returns (Students);
+  rpc DeleteStudents(StudentsIds) returns (DeleteStudentsConfirmation);
+}
+
+message StudentId {
+  string id = 1;
+}
+
+message StudentsIds {
+  repeated StudentId ids = 1;
+}
+
+message DeleteStudentsConfirmation {
+  string status = 1;
+  repeated StudentId deleted_ids = 2;
+}
+message GetStudentsRequest {
+  Students students = 1;
+  repeated SortField sort_by=2;
+  int32 page_number = 3;
+  int32 page_size = 4;
+}
+
+message Student {
+  string id = 1;
+  string first_name = 2[(buf.validate.field).string.min_len = 1];
+  string last_name = 3[(buf.validate.field).string.min_len = 1];
+  string email = 4;
+  string class = 5;
+}
+
+message Students {
+  repeated Student students = 1;
+}

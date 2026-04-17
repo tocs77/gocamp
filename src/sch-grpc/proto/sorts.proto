@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package main;
+
+option go_package = "proro/gen;schapipb";
+
+message SortField {
+  string field = 1;
+  Order order = 2;
+}
+
+enum Order {
+  ASC = 0;
+  DESC = 1;
+}

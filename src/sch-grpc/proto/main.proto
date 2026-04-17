@@ -1,0 +1,53 @@
+syntax = "proto3";
+import "buf/validate/validate.proto";
+import "sorts.proto";
+import "students.proto";
+package main;
+
+option go_package = "proro/gen;schapipb";
+
+
+service TeachersService {
+  rpc GetTeachers(GetTeachersRequest) returns (Teachers);
+  rpc AddTeachers(Teachers) returns (Teachers);
+  rpc UpdateTeachers(Teachers) returns (Teachers);
+  rpc DeleteTeachers(TeachersIds) returns (DeleteTeachersConfirmation);
+  rpc GetStudentsByClassTeacher(TeacherId) returns (Students);
+  rpc GetStudentCountByClassTeacher(TeacherId) returns (StudentCount);
+}
+
+message Teacher {
+  string id = 1;
+  string first_name = 2[(buf.validate.field).string.min_len = 1];
+  string last_name = 3[(buf.validate.field).string.min_len = 1];
+  string email = 4;
+  string class = 5;
+  string subject = 6;
+}
+
+message Teachers {
+  repeated Teacher teachers = 1;
+}
+
+message GetTeachersRequest {
+  Teacher teacher = 1;
+  repeated SortField sort_by=2;
+}
+
+message TeacherId {
+  string id = 1;
+}
+message TeachersIds {
+  repeated TeacherId ids = 1;
+}
+
+
+message DeleteTeachersConfirmation {
+ string status = 1;
+ repeated string deleted_ids = 2;
+}
+
+message StudentCount {
+  bool status = 1;
+  int32 student_count = 2;
+}

@@ -1,0 +1,2 @@
+deps:
+  - buf.build/bufbuild/protovalidate
