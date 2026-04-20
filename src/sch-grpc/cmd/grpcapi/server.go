@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"sch-grpc/internals/api/handlers"
+	"sch-grpc/pkg/utils"
 	pb "sch-grpc/proto/gen"
 )
 
@@ -71,10 +72,8 @@ func GatewayDialOptions() []grpc.DialOption {
 func RunServer(port int) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		utils.HandleError(err, "Failed to listen")
 	}
-
-	log.Printf("gRPC server listening on :%d (TLS)", port)
 
 	grpcServer := grpc.NewServer(grpc.Creds(globalCreds))
 	pb.RegisterTeachersServiceServer(grpcServer, &handlers.Server{})
@@ -82,7 +81,8 @@ func RunServer(port int) {
 	pb.RegisterExecsServiceServer(grpcServer, &handlers.Server{})
 	reflection.Register(grpcServer)
 
+	fmt.Printf("gRPC server listening on :%d (TLS)", port)
 	if err := grpcServer.Serve(listener); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		utils.HandleError(err, "Failed to serve")
 	}
 }
