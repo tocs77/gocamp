@@ -1,4 +1,17 @@
 services:
+  grpc-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace/sch-grpc
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    volumes:
+      - .:/workspace/sch-grpc
+    command: ["air", "-c", ".air.toml"]
+    env_file:
+      - .env
+
   mongo:
     image: mongo
     restart: always
