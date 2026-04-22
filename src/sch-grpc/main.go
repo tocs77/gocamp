@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"sch-grpc/cmd/grpcapi"
-	mongodb "sch-grpc/internals/repositories"
+	mongodb "sch-grpc/internals/repositories/mongodb"
 	"sch-grpc/pkg/utils"
 )
 
