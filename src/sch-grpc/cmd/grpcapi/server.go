@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 
+	"buf.build/go/protovalidate"
+	protovalidatemw "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/protovalidate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -75,7 +77,14 @@ func RunServer(port int) {
 		utils.HandleError(err, "Failed to listen")
 	}
 
-	grpcServer := grpc.NewServer(grpc.Creds(globalCreds))
+	validator, err := protovalidate.New()
+	if err != nil {
+		utils.HandleError(err, "Failed to create validator")
+	}
+
+	interceptor := protovalidatemw.UnaryServerInterceptor(validator)
+
+	grpcServer := grpc.NewServer(grpc.Creds(globalCreds), grpc.UnaryInterceptor(interceptor))
 	pb.RegisterTeachersServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterStudentsServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterExecsServiceServer(grpcServer, &handlers.Server{})
