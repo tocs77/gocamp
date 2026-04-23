@@ -25,12 +25,21 @@ message Teacher {
   string subject = 6;
 }
 
+message TeacherFilter {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  string class = 5;
+  string subject = 6;
+}
+
 message Teachers {
   repeated Teacher teachers = 1;
 }
 
 message GetTeachersRequest {
-  Teacher teacher = 1;
+  TeacherFilter teacher = 1;
   repeated SortField sort_by=2;
 }
 

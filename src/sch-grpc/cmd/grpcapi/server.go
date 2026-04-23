@@ -90,7 +90,7 @@ func RunServer(port int) {
 	pb.RegisterExecsServiceServer(grpcServer, &handlers.Server{})
 	reflection.Register(grpcServer)
 
-	fmt.Printf("gRPC server listening on :%d (TLS)", port)
+	fmt.Printf("gRPC server listening on :%d (TLS)\n", port)
 	if err := grpcServer.Serve(listener); err != nil {
 		utils.HandleError(err, "Failed to serve")
 	}
