@@ -7,7 +7,9 @@ import (
 	"sch-grpc/pkg/utils"
 	pb "sch-grpc/proto/gen"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func AddTeachers(ctx context.Context, teachers []*pb.Teacher) ([]*pb.Teacher, error) {
@@ -34,4 +36,25 @@ func AddTeachers(ctx context.Context, teachers []*pb.Teacher) ([]*pb.Teacher, er
 		pbTeachers = append(pbTeachers, pbTeacher)
 	}
 	return pbTeachers, nil
+}
+
+func GetTeachers(ctx context.Context, filter bson.M, sort bson.D) ([]*pb.Teacher, error) {
+	collection := MongoClient.Database("sch-db").Collection("teachers")
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSort(sort))
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to get teachers from MongoDB")
+	}
+	defer cursor.Close(ctx)
+	teachers := make([]*pb.Teacher, 0)
+	for cursor.Next(ctx) {
+		var teacher models.Teacher
+		err := cursor.Decode(&teacher)
+		if err != nil {
+			return nil, utils.HandleError(err, "failed to decode teacher from MongoDB")
+		}
+		pbTeacher := &pb.Teacher{}
+		utils.MapStructFields(teacher, pbTeacher)
+		teachers = append(teachers, pbTeacher)
+	}
+	return teachers, nil
 }
