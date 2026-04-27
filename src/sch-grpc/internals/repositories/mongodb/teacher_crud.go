@@ -9,6 +9,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -57,4 +58,47 @@ func GetTeachers(ctx context.Context, filter bson.M, sort bson.D) ([]*pb.Teacher
 		teachers = append(teachers, pbTeacher)
 	}
 	return teachers, nil
+}
+
+func UpdateTeachers(ctx context.Context, teachers []*pb.UpdateTeacher) ([]*pb.Teacher, error) {
+
+	updatedTeachers := make([]models.Teacher, 0, len(teachers))
+	for _, updateTeacher := range teachers {
+		var modelTeacher models.Teacher
+		utils.MapStructFields(updateTeacher, &modelTeacher)
+		updatedTeachers = append(updatedTeachers, modelTeacher)
+	}
+
+	collection := MongoClient.Database("sch-db").Collection("teachers")
+	succesFullyUpdatedTeachers := make([]*pb.Teacher, 0, len(updatedTeachers))
+
+	for _, teacher := range updatedTeachers {
+		objectId, err := primitive.ObjectIDFromHex(teacher.ID)
+		if err != nil {
+			return nil, utils.HandleError(err, "failed to convert object ID")
+		}
+		updateFields, err := utils.ModelToBson(teacher, true)
+		if err != nil {
+			return nil, utils.HandleError(err, "failed to convert model to bson")
+		}
+		var updatedTeacher models.Teacher
+		err = collection.FindOneAndUpdate(
+			ctx,
+			bson.M{"_id": objectId},
+			bson.M{"$set": updateFields},
+			options.FindOneAndUpdate().SetReturnDocument(options.After),
+		).Decode(&updatedTeacher)
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				return nil, utils.HandleError(errors.New("teacher not found"), "teacher not found")
+			}
+			return nil, utils.HandleError(err, "failed to update teacher in MongoDB")
+		}
+
+		pbTeacher := &pb.Teacher{}
+		utils.MapStructFields(updatedTeacher, pbTeacher)
+		succesFullyUpdatedTeachers = append(succesFullyUpdatedTeachers, pbTeacher)
+	}
+
+	return succesFullyUpdatedTeachers, nil
 }

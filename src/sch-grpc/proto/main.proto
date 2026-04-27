@@ -10,7 +10,7 @@ option go_package = "proro/gen;schapipb";
 service TeachersService {
   rpc GetTeachers(GetTeachersRequest) returns (Teachers);
   rpc AddTeachers(Teachers) returns (Teachers);
-  rpc UpdateTeachers(Teachers) returns (Teachers);
+  rpc UpdateTeachers(UpdateTeachersRequest) returns (Teachers);
   rpc DeleteTeachers(TeachersIds) returns (DeleteTeachersConfirmation);
   rpc GetStudentsByClassTeacher(TeacherId) returns (Students);
   rpc GetStudentCountByClassTeacher(TeacherId) returns (StudentCount);
@@ -25,6 +25,19 @@ message Teacher {
   string subject = 6;
 }
 
+message UpdateTeacher {
+  string id = 1;
+  optional string first_name = 2[(buf.validate.field).string.min_len = 1];
+  optional string last_name = 3[(buf.validate.field).string.min_len = 1];
+  optional string email = 4;
+  optional string class = 5;
+  optional string subject = 6;
+}
+
+message UpdateTeachersRequest {
+  repeated UpdateTeacher updates = 1;
+}
+
 message TeacherFilter {
   string id = 1;
   string first_name = 2;
@@ -37,6 +50,7 @@ message TeacherFilter {
 message Teachers {
   repeated Teacher teachers = 1;
 }
+
 
 message GetTeachersRequest {
   TeacherFilter teacher = 1;

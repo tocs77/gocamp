@@ -56,3 +56,25 @@ func (s *Server) GetTeachers(ctx context.Context, req *pb.GetTeachersRequest) (*
 	}
 	return &pb.Teachers{Teachers: teachers}, nil
 }
+
+//* UpdateTeachers
+
+func (s *Server) UpdateTeachers(ctx context.Context, req *pb.UpdateTeachersRequest) (*pb.Teachers, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+
+	for _, teacher := range req.GetUpdates() {
+		if teacher.GetId() == "" {
+			return nil, status.Error(codes.InvalidArgument, "request is in invalid format. ID field is required")
+		}
+	}
+
+	updatedTeachers, err := mongodb.UpdateTeachers(ctx, req.GetUpdates())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+	return &pb.Teachers{Teachers: updatedTeachers}, nil
+}
+
+//* DeleteTeachers

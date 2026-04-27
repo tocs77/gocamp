@@ -61,6 +61,34 @@ func MapStructFields(src any, dst any) {
 
 		if srcField.Type().ConvertibleTo(dstField.Type()) {
 			dstField.Set(srcField.Convert(dstField.Type()))
+			continue
+		}
+
+		// Handle protobuf optional fields and similar pointer/value mismatches.
+		if srcField.Kind() == reflect.Pointer && !srcField.IsNil() {
+			elem := srcField.Elem()
+			if elem.Type().AssignableTo(dstField.Type()) {
+				dstField.Set(elem)
+				continue
+			}
+			if elem.Type().ConvertibleTo(dstField.Type()) {
+				dstField.Set(elem.Convert(dstField.Type()))
+				continue
+			}
+		}
+
+		if dstField.Kind() == reflect.Pointer {
+			if srcField.Type().AssignableTo(dstField.Type().Elem()) {
+				ptr := reflect.New(dstField.Type().Elem())
+				ptr.Elem().Set(srcField)
+				dstField.Set(ptr)
+				continue
+			}
+			if srcField.Type().ConvertibleTo(dstField.Type().Elem()) {
+				ptr := reflect.New(dstField.Type().Elem())
+				ptr.Elem().Set(srcField.Convert(dstField.Type().Elem()))
+				dstField.Set(ptr)
+			}
 		}
 	}
 }
