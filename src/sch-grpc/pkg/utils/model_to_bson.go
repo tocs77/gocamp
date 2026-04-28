@@ -27,5 +27,8 @@ func ModelToBson[T any](model T, skipEmptyFields bool) (bson.M, error) {
 }
 
 func IsZero(value any) bool {
+	if value == nil {
+		return true
+	}
 	return reflect.ValueOf(value).IsZero()
 }
