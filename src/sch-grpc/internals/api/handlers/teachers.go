@@ -78,3 +78,26 @@ func (s *Server) UpdateTeachers(ctx context.Context, req *pb.UpdateTeachersReque
 }
 
 //* DeleteTeachers
+
+func (s *Server) DeleteTeachers(ctx context.Context, req *pb.TeachersIds) (*pb.DeleteTeachersConfirmation, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+
+	for _, teacher := range req.GetIds() {
+		if teacher.GetId() == "" {
+			return nil, status.Error(codes.InvalidArgument, "request is in invalid format. ID field is required")
+		}
+	}
+
+	teacherIDs := make([]string, 0, len(req.GetIds()))
+	for _, teacher := range req.GetIds() {
+		teacherIDs = append(teacherIDs, teacher.GetId())
+	}
+
+	deletedTeachersIds, err := mongodb.DeleteTeachers(ctx, teacherIDs)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+	return &pb.DeleteTeachersConfirmation{Status: "success", DeletedIds: deletedTeachersIds}, nil
+}

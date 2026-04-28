@@ -66,3 +66,11 @@ func UpdateTeachers(ctx context.Context, teachers []*pb.UpdateTeacher) ([]*pb.Te
 	}
 	return updatedTeachers, nil
 }
+
+func DeleteTeachers(ctx context.Context, teachersIds []string) ([]string, error) {
+	deletedIds, err := deleteInDbByID(ctx, "teachers", teachersIds)
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to delete teachers in MongoDB")
+	}
+	return deletedIds, nil
+}
