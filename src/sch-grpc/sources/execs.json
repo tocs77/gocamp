@@ -1,0 +1,402 @@
+[
+  {
+    "first_name": "Liam",
+    "last_name": "Smith",
+    "email": "liam.smith1@example.com",
+    "username": "liam.smith1",
+    "password": "Pass@1001",
+    "role": "manager"
+  },
+  {
+    "first_name": "Noah",
+    "last_name": "Johnson",
+    "email": "noah.johnson2@example.com",
+    "username": "noah.johnson2",
+    "password": "Pass@1002",
+    "role": "exec"
+  },
+  {
+    "first_name": "Oliver",
+    "last_name": "Williams",
+    "email": "oliver.williams3@example.com",
+    "username": "oliver.williams3",
+    "password": "Pass@1003",
+    "role": "exec"
+  },
+  {
+    "first_name": "Elijah",
+    "last_name": "Brown",
+    "email": "elijah.brown4@example.com",
+    "username": "elijah.brown4",
+    "password": "Pass@1004",
+    "role": "exec"
+  },
+  {
+    "first_name": "James",
+    "last_name": "Jones",
+    "email": "james.jones5@example.com",
+    "username": "james.jones5",
+    "password": "Pass@1005",
+    "role": "exec"
+  },
+  {
+    "first_name": "William",
+    "last_name": "Garcia",
+    "email": "william.garcia6@example.com",
+    "username": "william.garcia6",
+    "password": "Pass@1006",
+    "role": "manager"
+  },
+  {
+    "first_name": "Benjamin",
+    "last_name": "Miller",
+    "email": "benjamin.miller7@example.com",
+    "username": "benjamin.miller7",
+    "password": "Pass@1007",
+    "role": "exec"
+  },
+  {
+    "first_name": "Lucas",
+    "last_name": "Davis",
+    "email": "lucas.davis8@example.com",
+    "username": "lucas.davis8",
+    "password": "Pass@1008",
+    "role": "exec"
+  },
+  {
+    "first_name": "Henry",
+    "last_name": "Rodriguez",
+    "email": "henry.rodriguez9@example.com",
+    "username": "henry.rodriguez9",
+    "password": "Pass@1009",
+    "role": "exec"
+  },
+  {
+    "first_name": "Alexander",
+    "last_name": "Martinez",
+    "email": "alexander.martinez10@example.com",
+    "username": "alexander.martinez10",
+    "password": "Pass@1010",
+    "role": "exec"
+  },
+  {
+    "first_name": "Mason",
+    "last_name": "Hernandez",
+    "email": "mason.hernandez11@example.com",
+    "username": "mason.hernandez11",
+    "password": "Pass@1011",
+    "role": "manager"
+  },
+  {
+    "first_name": "Michael",
+    "last_name": "Lopez",
+    "email": "michael.lopez12@example.com",
+    "username": "michael.lopez12",
+    "password": "Pass@1012",
+    "role": "exec"
+  },
+  {
+    "first_name": "Ethan",
+    "last_name": "Gonzalez",
+    "email": "ethan.gonzalez13@example.com",
+    "username": "ethan.gonzalez13",
+    "password": "Pass@1013",
+    "role": "exec"
+  },
+  {
+    "first_name": "Daniel",
+    "last_name": "Wilson",
+    "email": "daniel.wilson14@example.com",
+    "username": "daniel.wilson14",
+    "password": "Pass@1014",
+    "role": "exec"
+  },
+  {
+    "first_name": "Jacob",
+    "last_name": "Anderson",
+    "email": "jacob.anderson15@example.com",
+    "username": "jacob.anderson15",
+    "password": "Pass@1015",
+    "role": "exec"
+  },
+  {
+    "first_name": "Logan",
+    "last_name": "Thomas",
+    "email": "logan.thomas16@example.com",
+    "username": "logan.thomas16",
+    "password": "Pass@1016",
+    "role": "manager"
+  },
+  {
+    "first_name": "Jackson",
+    "last_name": "Taylor",
+    "email": "jackson.taylor17@example.com",
+    "username": "jackson.taylor17",
+    "password": "Pass@1017",
+    "role": "exec"
+  },
+  {
+    "first_name": "Levi",
+    "last_name": "Moore",
+    "email": "levi.moore18@example.com",
+    "username": "levi.moore18",
+    "password": "Pass@1018",
+    "role": "exec"
+  },
+  {
+    "first_name": "Sebastian",
+    "last_name": "Jackson",
+    "email": "sebastian.jackson19@example.com",
+    "username": "sebastian.jackson19",
+    "password": "Pass@1019",
+    "role": "exec"
+  },
+  {
+    "first_name": "Mateo",
+    "last_name": "Martin",
+    "email": "mateo.martin20@example.com",
+    "username": "mateo.martin20",
+    "password": "Pass@1020",
+    "role": "exec"
+  },
+  {
+    "first_name": "Jack",
+    "last_name": "Lee",
+    "email": "jack.lee21@example.com",
+    "username": "jack.lee21",
+    "password": "Pass@1021",
+    "role": "manager"
+  },
+  {
+    "first_name": "Owen",
+    "last_name": "Perez",
+    "email": "owen.perez22@example.com",
+    "username": "owen.perez22",
+    "password": "Pass@1022",
+    "role": "exec"
+  },
+  {
+    "first_name": "Theodore",
+    "last_name": "Thompson",
+    "email": "theodore.thompson23@example.com",
+    "username": "theodore.thompson23",
+    "password": "Pass@1023",
+    "role": "exec"
+  },
+  {
+    "first_name": "Aiden",
+    "last_name": "White",
+    "email": "aiden.white24@example.com",
+    "username": "aiden.white24",
+    "password": "Pass@1024",
+    "role": "exec"
+  },
+  {
+    "first_name": "Samuel",
+    "last_name": "Harris",
+    "email": "samuel.harris25@example.com",
+    "username": "samuel.harris25",
+    "password": "Pass@1025",
+    "role": "exec"
+  },
+  {
+    "first_name": "Joseph",
+    "last_name": "Sanchez",
+    "email": "joseph.sanchez26@example.com",
+    "username": "joseph.sanchez26",
+    "password": "Pass@1026",
+    "role": "manager"
+  },
+  {
+    "first_name": "John",
+    "last_name": "Clark",
+    "email": "john.clark27@example.com",
+    "username": "john.clark27",
+    "password": "Pass@1027",
+    "role": "exec"
+  },
+  {
+    "first_name": "David",
+    "last_name": "Ramirez",
+    "email": "david.ramirez28@example.com",
+    "username": "david.ramirez28",
+    "password": "Pass@1028",
+    "role": "exec"
+  },
+  {
+    "first_name": "Wyatt",
+    "last_name": "Lewis",
+    "email": "wyatt.lewis29@example.com",
+    "username": "wyatt.lewis29",
+    "password": "Pass@1029",
+    "role": "exec"
+  },
+  {
+    "first_name": "Matthew",
+    "last_name": "Robinson",
+    "email": "matthew.robinson30@example.com",
+    "username": "matthew.robinson30",
+    "password": "Pass@1030",
+    "role": "exec"
+  },
+  {
+    "first_name": "Luke",
+    "last_name": "Walker",
+    "email": "luke.walker31@example.com",
+    "username": "luke.walker31",
+    "password": "Pass@1031",
+    "role": "manager"
+  },
+  {
+    "first_name": "Asher",
+    "last_name": "Young",
+    "email": "asher.young32@example.com",
+    "username": "asher.young32",
+    "password": "Pass@1032",
+    "role": "exec"
+  },
+  {
+    "first_name": "Carter",
+    "last_name": "Allen",
+    "email": "carter.allen33@example.com",
+    "username": "carter.allen33",
+    "password": "Pass@1033",
+    "role": "exec"
+  },
+  {
+    "first_name": "Julian",
+    "last_name": "King",
+    "email": "julian.king34@example.com",
+    "username": "julian.king34",
+    "password": "Pass@1034",
+    "role": "exec"
+  },
+  {
+    "first_name": "Grayson",
+    "last_name": "Wright",
+    "email": "grayson.wright35@example.com",
+    "username": "grayson.wright35",
+    "password": "Pass@1035",
+    "role": "exec"
+  },
+  {
+    "first_name": "Leo",
+    "last_name": "Scott",
+    "email": "leo.scott36@example.com",
+    "username": "leo.scott36",
+    "password": "Pass@1036",
+    "role": "manager"
+  },
+  {
+    "first_name": "Jayden",
+    "last_name": "Torres",
+    "email": "jayden.torres37@example.com",
+    "username": "jayden.torres37",
+    "password": "Pass@1037",
+    "role": "exec"
+  },
+  {
+    "first_name": "Gabriel",
+    "last_name": "Nguyen",
+    "email": "gabriel.nguyen38@example.com",
+    "username": "gabriel.nguyen38",
+    "password": "Pass@1038",
+    "role": "exec"
+  },
+  {
+    "first_name": "Isaac",
+    "last_name": "Hill",
+    "email": "isaac.hill39@example.com",
+    "username": "isaac.hill39",
+    "password": "Pass@1039",
+    "role": "exec"
+  },
+  {
+    "first_name": "Lincoln",
+    "last_name": "Flores",
+    "email": "lincoln.flores40@example.com",
+    "username": "lincoln.flores40",
+    "password": "Pass@1040",
+    "role": "exec"
+  },
+  {
+    "first_name": "Anthony",
+    "last_name": "Green",
+    "email": "anthony.green41@example.com",
+    "username": "anthony.green41",
+    "password": "Pass@1041",
+    "role": "manager"
+  },
+  {
+    "first_name": "Hudson",
+    "last_name": "Adams",
+    "email": "hudson.adams42@example.com",
+    "username": "hudson.adams42",
+    "password": "Pass@1042",
+    "role": "exec"
+  },
+  {
+    "first_name": "Dylan",
+    "last_name": "Nelson",
+    "email": "dylan.nelson43@example.com",
+    "username": "dylan.nelson43",
+    "password": "Pass@1043",
+    "role": "exec"
+  },
+  {
+    "first_name": "Ezra",
+    "last_name": "Baker",
+    "email": "ezra.baker44@example.com",
+    "username": "ezra.baker44",
+    "password": "Pass@1044",
+    "role": "exec"
+  },
+  {
+    "first_name": "Thomas",
+    "last_name": "Hall",
+    "email": "thomas.hall45@example.com",
+    "username": "thomas.hall45",
+    "password": "Pass@1045",
+    "role": "exec"
+  },
+  {
+    "first_name": "Charles",
+    "last_name": "Rivera",
+    "email": "charles.rivera46@example.com",
+    "username": "charles.rivera46",
+    "password": "Pass@1046",
+    "role": "manager"
+  },
+  {
+    "first_name": "Christopher",
+    "last_name": "Campbell",
+    "email": "christopher.campbell47@example.com",
+    "username": "christopher.campbell47",
+    "password": "Pass@1047",
+    "role": "exec"
+  },
+  {
+    "first_name": "Jaxon",
+    "last_name": "Mitchell",
+    "email": "jaxon.mitchell48@example.com",
+    "username": "jaxon.mitchell48",
+    "password": "Pass@1048",
+    "role": "exec"
+  },
+  {
+    "first_name": "Maverick",
+    "last_name": "Carter",
+    "email": "maverick.carter49@example.com",
+    "username": "maverick.carter49",
+    "password": "Pass@1049",
+    "role": "exec"
+  },
+  {
+    "first_name": "Josiah",
+    "last_name": "Roberts",
+    "email": "josiah.roberts50@example.com",
+    "username": "josiah.roberts50",
+    "password": "Pass@1050",
+    "role": "exec"
+  }
+]
