@@ -101,3 +101,31 @@ func (s *Server) DeleteTeachers(ctx context.Context, req *pb.TeachersIds) (*pb.D
 	}
 	return &pb.DeleteTeachersConfirmation{Status: "success", DeletedIds: deletedTeachersIds}, nil
 }
+
+//* GetStudentsByClassTeacher
+
+func (s *Server) GetStudentsByClassTeacher(ctx context.Context, req *pb.TeacherId) (*pb.Students, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+
+	students, err := mongodb.GetTeacherStudents(ctx, req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+	return &pb.Students{Students: students}, nil
+}
+
+//* GetStudentCountByClassTeacher
+
+func (s *Server) GetStudentCountByClassTeacher(ctx context.Context, req *pb.TeacherId) (*pb.StudentCount, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+
+	count, err := mongodb.GetTeacherStudentsCount(ctx, req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+	return &pb.StudentCount{StudentCount: int32(count)}, nil
+}

@@ -74,3 +74,57 @@ func DeleteTeachers(ctx context.Context, teachersIds []string) ([]string, error)
 	}
 	return deletedIds, nil
 }
+
+func GetTeacherStudents(ctx context.Context, teacherID string) ([]*pb.Student, error) {
+	objectID, err := primitive.ObjectIDFromHex(teacherID)
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to convert teacher ID to ObjectID")
+	}
+
+	teacherCollection := MongoClient.Database("sch-db").Collection("teachers")
+	teacher := models.Teacher{}
+	err = teacherCollection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&teacher)
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to get teacher from MongoDB")
+	}
+
+	studentsCollection := MongoClient.Database("sch-db").Collection("students")
+	cursor, err := studentsCollection.Find(ctx, bson.M{"class": teacher.Class})
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to get students from MongoDB")
+	}
+	defer cursor.Close(ctx)
+	students := make([]*pb.Student, 0)
+	for cursor.Next(ctx) {
+		var student models.Student
+		err := cursor.Decode(&student)
+		if err != nil {
+			return nil, utils.HandleError(err, "failed to decode student from MongoDB")
+		}
+		pbStudent := &pb.Student{}
+		utils.MapStructFields(student, pbStudent)
+		students = append(students, pbStudent)
+	}
+	return students, nil
+}
+
+func GetTeacherStudentsCount(ctx context.Context, teacherID string) (int, error) {
+	objectID, err := primitive.ObjectIDFromHex(teacherID)
+	if err != nil {
+		return 0, utils.HandleError(err, "failed to convert teacher ID to ObjectID")
+	}
+
+	teacherCollection := MongoClient.Database("sch-db").Collection("teachers")
+	teacher := models.Teacher{}
+	err = teacherCollection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&teacher)
+	if err != nil {
+		return 0, utils.HandleError(err, "failed to get teacher from MongoDB")
+	}
+
+	studentsCollection := MongoClient.Database("sch-db").Collection("students")
+	count, err := studentsCollection.CountDocuments(ctx, bson.M{"class": teacher.Class})
+	if err != nil {
+		return 0, utils.HandleError(err, "failed to get students count from MongoDB")
+	}
+	return int(count), nil
+}
