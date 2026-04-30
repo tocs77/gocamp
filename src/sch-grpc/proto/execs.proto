@@ -8,7 +8,7 @@ package main;
 option go_package = "proro/gen;schapipb";
 
 service ExecsService {
-  rpc GetExecs(GetExecsRequest) returns (Execs);
+  rpc GetExecs(GetExecsRequest) returns (ExecsPublic);
   rpc AddExecs(Execs) returns (Execs);
   rpc UpdateExecs(Execs) returns (Execs);
   rpc DeleteExecs(ExecsIds) returns (DeleteExecsConfirmation);
@@ -56,6 +56,20 @@ message Exec {
 
 message Execs {
   repeated Exec execs = 1;
+}
+
+message ExecPublic {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  string username = 5;
+  string role = 6;
+  bool inactive_status = 7;
+}
+
+message ExecsPublic {
+  repeated ExecPublic execs = 1;
 }
 message EmptyRequest {}
 

@@ -50,7 +50,15 @@ func (s *Server) GetStudents(ctx context.Context, req *pb.GetStudentsRequest) (*
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	students, err := mongodb.GetStudents(ctx, filter, sortOptions)
+	pageNumber := req.GetPageNumber()
+	pageSize := req.GetPageSize()
+	if pageNumber <= 0 {
+		pageNumber = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	students, err := mongodb.GetStudents(ctx, filter, sortOptions, pageNumber, pageSize)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}

@@ -50,7 +50,7 @@ func AddExecs(ctx context.Context, execs []*pb.Exec) ([]*pb.Exec, error) {
 	return pbExecs, nil
 }
 
-func GetExecs(ctx context.Context, filter bson.M, sort bson.D) ([]*pb.Exec, error) {
+func GetExecs(ctx context.Context, filter bson.M, sort bson.D) ([]*pb.ExecPublic, error) {
 	collection := MongoClient.Database("sch-db").Collection("execs")
 	cursor, err := collection.Find(ctx, filter, options.Find().SetSort(sort))
 	if err != nil {
@@ -58,14 +58,14 @@ func GetExecs(ctx context.Context, filter bson.M, sort bson.D) ([]*pb.Exec, erro
 	}
 	defer cursor.Close(ctx)
 
-	execs := make([]*pb.Exec, 0)
+	execs := make([]*pb.ExecPublic, 0)
 	for cursor.Next(ctx) {
 		var exec models.Exec
 		if err := cursor.Decode(&exec); err != nil {
 			return nil, utils.HandleError(err, "failed to decode exec from MongoDB")
 		}
 
-		pbExec := &pb.Exec{}
+		pbExec := &pb.ExecPublic{}
 		utils.MapStructFields(exec, pbExec)
 		execs = append(execs, pbExec)
 	}

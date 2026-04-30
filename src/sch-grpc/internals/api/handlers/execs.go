@@ -35,17 +35,17 @@ func (s *Server) AddExecs(ctx context.Context, req *pb.Execs) (*pb.Execs, error)
 
 //* GetExecs
 
-func (s *Server) GetExecs(ctx context.Context, req *pb.GetExecsRequest) (*pb.Execs, error) {
+func (s *Server) GetExecs(ctx context.Context, req *pb.GetExecsRequest) (*pb.ExecsPublic, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
 
-	filter, err := utils.BuildFilterForModel(models.Exec{}, req.GetExecs())
+	filter, err := utils.BuildFilterForModel(models.ExecPublic{}, req.GetExecs())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	sortOptions, err := utils.BuildSortForModel(models.Exec{}, req.GetSortBy(), pb.Order_DESC)
+	sortOptions, err := utils.BuildSortForModel(models.ExecPublic{}, req.GetSortBy(), pb.Order_DESC)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -55,7 +55,7 @@ func (s *Server) GetExecs(ctx context.Context, req *pb.GetExecsRequest) (*pb.Exe
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
 
-	return &pb.Execs{Execs: execs}, nil
+	return &pb.ExecsPublic{Execs: execs}, nil
 }
 
 //* UpdateExecs

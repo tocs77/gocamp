@@ -14,3 +14,13 @@ type Exec struct {
 	InactiveStatus       bool   `protobuf:"inactive_status,omitempty" bson:"inactive_status"`
 	Role                 string `protobuf:"role,omitempty" bson:"role,omitempty"`
 }
+
+type ExecPublic struct {
+	ID             string `protobuf:"id,omitempty" bson:"_id,omitempty"`
+	FirstName      string `protobuf:"first_name,omitempty" bson:"first_name,omitempty"`
+	LastName       string `protobuf:"last_name,omitempty" bson:"last_name,omitempty"`
+	Email          string `protobuf:"email,omitempty" bson:"email,omitempty"`
+	Username       string `protobuf:"username,omitempty" bson:"username,omitempty"`
+	Role           string `protobuf:"role,omitempty" bson:"role,omitempty"`
+	InactiveStatus bool   `protobuf:"inactive_status,omitempty" bson:"inactive_status"`
+}

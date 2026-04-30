@@ -42,9 +42,9 @@ func AddStudents(ctx context.Context, students []*pb.Student) ([]*pb.Student, er
 	return pbStudents, nil
 }
 
-func GetStudents(ctx context.Context, filter bson.M, sort bson.D) ([]*pb.Student, error) {
+func GetStudents(ctx context.Context, filter bson.M, sort bson.D, pageNumber int32, pageSize int32) ([]*pb.Student, error) {
 	collection := MongoClient.Database("sch-db").Collection("students")
-	cursor, err := collection.Find(ctx, filter, options.Find().SetSort(sort))
+	cursor, err := collection.Find(ctx, filter, options.Find().SetSort(sort).SetSkip(int64((pageNumber-1)*pageSize)).SetLimit(int64(pageSize)))
 	if err != nil {
 		return nil, utils.HandleError(err, "failed to get students from MongoDB")
 	}
