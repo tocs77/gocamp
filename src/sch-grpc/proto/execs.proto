@@ -15,7 +15,7 @@ service ExecsService {
 
   rpc Login(ExecLoginRequest) returns (ExecLoginResponse);
   rpc Logout(EmptyRequest) returns (ExecLogoutResponse);
-  rpc UpatePassword(UpdatePasswordRequest) returns (UpdatePasswordResponse);
+  rpc UpdatePassword(UpdatePasswordRequest) returns (UpdatePasswordResponse);
   rpc ResetPassword(ResetPasswordRequest) returns (Confirmation);
   rpc ForgotPassword(ForgotPasswordRequest) returns (ForgotPasswordResponse);
   rpc DeactivateUser(ExecsIds) returns (Confirmation);

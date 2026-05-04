@@ -90,3 +90,15 @@ func DeleteExecs(ctx context.Context, execIDs []string) ([]string, error) {
 
 	return deletedIDs, nil
 }
+
+func GetExecByUsername(ctx context.Context, username string) (*pb.Exec, error) {
+	collection := MongoClient.Database("sch-db").Collection("execs")
+	exec := models.Exec{}
+	err := collection.FindOne(ctx, bson.M{"username": username}).Decode(&exec)
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to get exec by username from MongoDB")
+	}
+	pbExec := &pb.Exec{}
+	utils.MapStructFields(exec, pbExec)
+	return pbExec, nil
+}

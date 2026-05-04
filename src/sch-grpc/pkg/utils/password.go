@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-func HashPassword(password string) (string, error) {	
+func HashPassword(password string) (string, error) {
 	salt := make([]byte, 16)
 	_, err := io.ReadFull(rand.Reader, salt)
 	if err != nil {
@@ -41,10 +41,10 @@ func ComparePassword(hashedPassword, password string) (bool, error) {
 	}
 	computedHash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
 	if len(hash) != len(computedHash) {
-		return false, HandleError(errors.New("invalid password"), "invalid password")
+		return false, nil
 	}
 	if subtle.ConstantTimeCompare(hash, computedHash) == 1 {
 		return true, nil
 	}
-	return false, HandleError(errors.New("invalid password"), "invalid password")
+	return false, nil
 }

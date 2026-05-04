@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"sch-grpc/internals/models"
 	mongodb "sch-grpc/internals/repositories/mongodb"
 	"sch-grpc/pkg/utils"
 	pb "sch-grpc/proto/gen"
 
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -111,4 +115,83 @@ func (s *Server) DeleteExecs(ctx context.Context, req *pb.ExecsIds) (*pb.DeleteE
 		Status:     "success",
 		DeletedIds: deletedExecIDs,
 	}, nil
+}
+
+//* Login
+
+func (s *Server) Login(ctx context.Context, req *pb.ExecLoginRequest) (*pb.ExecLoginResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+
+	exec, err := mongodb.GetExecByUsername(ctx, req.GetUsername())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+	if exec.InactiveStatus {
+		return nil, status.Error(codes.Unauthenticated, "user is inactive")
+	}
+	valid, err := utils.ComparePassword(exec.GetPassword(), req.GetPassword())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+	if !valid {
+		return nil, status.Error(codes.Unauthenticated, "invalid username or password")
+	}
+	token, err := utils.SignToken(exec.GetId(), exec.GetUsername(), exec.GetRole())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "Internal server error")
+	}
+
+	return &pb.ExecLoginResponse{Status: true, Token: token}, nil
+}
+
+//* UpdatePassword
+
+func (s *Server) UpdatePassword(ctx context.Context, req *pb.UpdatePasswordRequest) (*pb.UpdatePasswordResponse, error) {
+	fmt.Println("UpdatePassword request received")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	if req.GetId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. ID field is required")
+	}
+	if req.GetCurrentPassword() == "" {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. Current password field is required")
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. ID field is not a valid ObjectID")
+	}
+
+	exec := models.Exec{}
+	err = mongodb.MongoClient.Database("sch-db").Collection("execs").FindOne(ctx, bson.M{"_id": objectID}).Decode(&exec)
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error finding exec").Error())
+	}
+	if exec.InactiveStatus {
+		return nil, status.Error(codes.Unauthenticated, "user is inactive")
+	}
+	valid, err := utils.ComparePassword(exec.Password, req.GetCurrentPassword())
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error comparing passwords").Error())
+	}
+	if !valid {
+		return nil, status.Error(codes.Unauthenticated, "invalid current password")
+	}
+	hashedPassword, err := utils.HashPassword(req.GetNewPassword())
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error hashing password").Error())
+	}
+
+	_, err = mongodb.MongoClient.Database("sch-db").Collection("execs").UpdateOne(ctx, bson.M{"_id": objectID}, bson.M{"$set": bson.M{"password": hashedPassword, "password_changed_at": time.Now().Format(time.RFC3339)}})
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error updating exec").Error())
+	}
+	token, err := utils.SignToken(exec.ID, exec.Username, exec.Role)
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error signing token").Error())
+	}
+	return &pb.UpdatePasswordResponse{PasswordUpdated: true, Token: token}, nil
 }
