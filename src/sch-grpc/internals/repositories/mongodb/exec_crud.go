@@ -102,3 +102,21 @@ func GetExecByUsername(ctx context.Context, username string) (*pb.Exec, error) {
 	utils.MapStructFields(exec, pbExec)
 	return pbExec, nil
 }
+
+func DeactivateUsers(ctx context.Context, execIDs []string) ([]string, error) {
+	var objectIDs []primitive.ObjectID
+	for _, id := range execIDs {
+		oid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return nil, utils.HandleError(err, "failed to convert ID to object ID")
+		}
+		objectIDs = append(objectIDs, oid)
+	}
+
+	_, err := MongoClient.Database("sch-db").Collection("execs").UpdateMany(ctx, bson.M{"_id": bson.M{"$in": objectIDs}}, bson.M{"$set": bson.M{"inactive_status": true}})
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to deactivate users in MongoDB")
+	}
+
+	return execIDs, nil
+}

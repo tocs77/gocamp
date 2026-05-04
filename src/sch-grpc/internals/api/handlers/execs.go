@@ -195,3 +195,28 @@ func (s *Server) UpdatePassword(ctx context.Context, req *pb.UpdatePasswordReque
 	}
 	return &pb.UpdatePasswordResponse{PasswordUpdated: true, Token: token}, nil
 }
+
+//* Deactivate user
+
+func (s *Server) DeactivateUser(ctx context.Context, req *pb.ExecsIds) (*pb.Confirmation, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	for _, exec := range req.GetIds() {
+		if exec.GetId() == "" {
+			return nil, status.Error(codes.InvalidArgument, "request is in invalid format. ID field is required")
+		}
+	}
+
+	execIDs := make([]string, 0, len(req.GetIds()))
+	for _, exec := range req.GetIds() {
+		execIDs = append(execIDs, exec.GetId())
+	}
+
+	_, err := mongodb.DeactivateUsers(ctx, execIDs)
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error deactivating users").Error())
+	}
+
+	return &pb.Confirmation{Confirmation: true}, nil
+}
