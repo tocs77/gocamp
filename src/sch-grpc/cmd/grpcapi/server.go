@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"sch-grpc/internals/api/handlers"
+	"sch-grpc/internals/api/interceptors"
 	"sch-grpc/pkg/utils"
 	pb "sch-grpc/proto/gen"
 )
@@ -84,7 +85,7 @@ func RunServer(port int) {
 
 	interceptor := protovalidatemw.UnaryServerInterceptor(validator)
 
-	grpcServer := grpc.NewServer(grpc.Creds(globalCreds), grpc.UnaryInterceptor(interceptor))
+	grpcServer := grpc.NewServer(grpc.Creds(globalCreds), grpc.ChainUnaryInterceptor(interceptors.ResponseTimeInterceptor, interceptor))
 	pb.RegisterTeachersServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterStudentsServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterExecsServiceServer(grpcServer, &handlers.Server{})
