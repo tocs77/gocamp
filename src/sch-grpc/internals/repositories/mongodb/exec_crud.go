@@ -120,3 +120,15 @@ func DeactivateUsers(ctx context.Context, execIDs []string) ([]string, error) {
 
 	return execIDs, nil
 }
+
+func GetExecByEmail(ctx context.Context, email string) (*pb.Exec, error) {
+	collection := MongoClient.Database("sch-db").Collection("execs")
+	exec := models.Exec{}
+	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&exec)
+	if err != nil {
+		return nil, utils.HandleError(err, "failed to get exec by email from MongoDB")
+	}
+	pbExec := &pb.Exec{}
+	utils.MapStructFields(exec, pbExec)
+	return pbExec, nil
+}

@@ -4,8 +4,8 @@ type Exec struct {
 	ID                   string `protibuf:"id,omitempty" bson:"_id,omitempty"`
 	FirstName            string `protobuf:"first_name,omitempty" bson:"first_name,omitempty"`
 	LastName             string `protobuf:"last_name,omitempty" bson:"last_name,omitempty"`
-	Email                string `protobuf:"email,omitempty" bson:"email,omitempty"`
-	Username             string `protobuf:"username,omitempty" bson:"username,omitempty"`
+	Email                string `protobuf:"email,omitempty" bson:"email,omitempty,unique"`
+	Username             string `protobuf:"username,omitempty" bson:"username,omitempty,unique"`
 	Password             string `protobuf:"password,omitempty" bson:"password,omitempty"`
 	PasswordChangedAt    string `protobuf:"password_changed_at,omitempty" bson:"password_changed_at,omitempty"`
 	UserCreatedAt        string `protobuf:"user_created_at,omitempty" bson:"user_created_at,omitempty"`
@@ -19,8 +19,8 @@ type ExecPublic struct {
 	ID             string `protobuf:"id,omitempty" bson:"_id,omitempty"`
 	FirstName      string `protobuf:"first_name,omitempty" bson:"first_name,omitempty"`
 	LastName       string `protobuf:"last_name,omitempty" bson:"last_name,omitempty"`
-	Email          string `protobuf:"email,omitempty" bson:"email,omitempty"`
-	Username       string `protobuf:"username,omitempty" bson:"username,omitempty"`
+	Email          string `protobuf:"email,omitempty" bson:"email,omitempty,unique"`
+	Username       string `protobuf:"username,omitempty" bson:"username,omitempty,unique"`
 	Role           string `protobuf:"role,omitempty" bson:"role,omitempty"`
 	InactiveStatus bool   `protobuf:"inactive_status,omitempty" bson:"inactive_status"`
 }

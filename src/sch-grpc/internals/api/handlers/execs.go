@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"time"
 
 	"sch-grpc/internals/models"
@@ -219,4 +223,36 @@ func (s *Server) DeactivateUser(ctx context.Context, req *pb.ExecsIds) (*pb.Conf
 	}
 
 	return &pb.Confirmation{Confirmation: true}, nil
+}
+
+//* Forgot Password
+
+func (s *Server) ForgotPassword(ctx context.Context, req *pb.ForgotPasswordRequest) (*pb.ForgotPasswordResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	if req.GetEmail() == "" {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. Email field is required")
+	}
+
+	exec, err := mongodb.GetExecByEmail(ctx, req.GetEmail())
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error retrieving exec").Error())
+	}
+	if exec.InactiveStatus {
+		return nil, status.Error(codes.Unauthenticated, "user is inactive")
+	}
+	tokenbytes := make([]byte, 32)
+	rand.Read(tokenbytes)
+	token := hex.EncodeToString(tokenbytes)
+	hashedToken := sha256.Sum256(tokenbytes)
+	hashedTokenString := hex.EncodeToString(hashedToken[:])
+	exec.PasswordResetToken = hashedTokenString
+	exec.PasswordTokenExpires = time.Now().Add(time.Hour * 24).Format(time.RFC3339)
+	_, err = mongodb.UpdateExecs(ctx, []*pb.Exec{exec})
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error updating exec").Error())
+	}
+	resetPasswordURL := fmt.Sprintf("https://localhost:%s/execs/reset-password/reset/%s", os.Getenv("EXPOSE_PORT"), token)
+	return &pb.ForgotPasswordResponse{Confirmation: true, Message: "Forgot password?. Reset your password using following link: " + resetPasswordURL}, nil
 }
