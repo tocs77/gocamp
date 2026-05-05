@@ -1,17 +1,18 @@
 package mongodb
 
 import (
-	"context"
-	"errors"
-	"time"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"sch-grpc/internals/models"
 	"sch-grpc/pkg/utils"
 	pb "sch-grpc/proto/gen"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"context"
+	"errors"
+	"time"
 )
 
 func AddExecs(ctx context.Context, execs []*pb.Exec) ([]*pb.Exec, error) {
@@ -127,6 +128,43 @@ func GetExecByEmail(ctx context.Context, email string) (*pb.Exec, error) {
 	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&exec)
 	if err != nil {
 		return nil, utils.HandleError(err, "failed to get exec by email from MongoDB")
+	}
+	pbExec := &pb.Exec{}
+	utils.MapStructFields(exec, pbExec)
+	return pbExec, nil
+}
+
+func SetExecPasswordResetFields(ctx context.Context, execID, hashedToken, expiresRFC3339 string) error {
+	oid, err := primitive.ObjectIDFromHex(execID)
+	if err != nil {
+		return utils.HandleError(err, "invalid exec id")
+	}
+	_, err = MongoClient.Database("sch-db").Collection("execs").UpdateOne(ctx,
+		bson.M{"_id": oid},
+		bson.M{"$set": bson.M{
+			"password_reset_token":   hashedToken,
+			"password_token_expires": expiresRFC3339,
+		}},
+	)
+	if err != nil {
+		return utils.HandleError(err, "failed to set password reset fields in MongoDB")
+	}
+	return nil
+}
+
+func GetExecByPasswordResetToken(ctx context.Context, resetCode string) (*pb.Exec, error) {
+	hashedToken, err := utils.PasswordResetTokenHashFromPlain(resetCode)
+	if err != nil {
+		return nil, err
+	}
+	collection := MongoClient.Database("sch-db").Collection("execs")
+	exec := models.Exec{}
+	err = collection.FindOne(ctx, bson.M{"password_reset_token": hashedToken}).Decode(&exec)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, mongo.ErrNoDocuments
+		}
+		return nil, utils.HandleError(err, "failed to get exec by password reset token from MongoDB")
 	}
 	pbExec := &pb.Exec{}
 	utils.MapStructFields(exec, pbExec)

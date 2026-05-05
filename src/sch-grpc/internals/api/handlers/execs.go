@@ -1,23 +1,24 @@
 package handlers
 
 import (
-	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"os"
-	"time"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"sch-grpc/internals/models"
 	mongodb "sch-grpc/internals/repositories/mongodb"
 	"sch-grpc/pkg/utils"
 	pb "sch-grpc/proto/gen"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
+	"time"
 )
 
 //* AddExecs
@@ -245,14 +246,67 @@ func (s *Server) ForgotPassword(ctx context.Context, req *pb.ForgotPasswordReque
 	tokenbytes := make([]byte, 32)
 	rand.Read(tokenbytes)
 	token := hex.EncodeToString(tokenbytes)
-	hashedToken := sha256.Sum256(tokenbytes)
-	hashedTokenString := hex.EncodeToString(hashedToken[:])
-	exec.PasswordResetToken = hashedTokenString
-	exec.PasswordTokenExpires = time.Now().Add(time.Hour * 24).Format(time.RFC3339)
-	_, err = mongodb.UpdateExecs(ctx, []*pb.Exec{exec})
-	if err != nil {
+	hashedToken := utils.PasswordResetTokenHashFromRaw(tokenbytes)
+	expires := time.Now().Add(time.Hour * 24).Format(time.RFC3339)
+	if err := mongodb.SetExecPasswordResetFields(ctx, exec.GetId(), hashedToken, expires); err != nil {
 		return nil, status.Error(codes.Internal, utils.HandleError(err, "error updating exec").Error())
 	}
 	resetPasswordURL := fmt.Sprintf("https://localhost:%s/execs/reset-password/reset/%s", os.Getenv("EXPOSE_PORT"), token)
 	return &pb.ForgotPasswordResponse{Confirmation: true, Message: "Forgot password?. Reset your password using following link: " + resetPasswordURL}, nil
+}
+
+//* Reset Password
+
+func (s *Server) ResetPassword(ctx context.Context, req *pb.ResetPasswordRequest) (*pb.Confirmation, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	if req.GetResetCode() == "" {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. Reset code field is required")
+	}
+	if req.GetNewPassword() == "" {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. New password field is required")
+	}
+	if req.GetConfirmPassword() == "" {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. Confirm password field is required")
+	}
+	if req.GetNewPassword() != req.GetConfirmPassword() {
+		return nil, status.Error(codes.InvalidArgument, "request is in invalid format. New password and confirm password do not match")
+	}
+	exec, err := mongodb.GetExecByPasswordResetToken(ctx, req.GetResetCode())
+	if err != nil {
+		switch {
+		case errors.Is(err, mongo.ErrNoDocuments):
+			return nil, status.Error(codes.Unauthenticated, "invalid or expired reset link")
+		case errors.Is(err, utils.ErrInvalidPasswordResetToken):
+			return nil, status.Error(codes.InvalidArgument, "invalid reset code")
+		default:
+			return nil, status.Error(codes.Internal, utils.HandleError(err, "error retrieving exec").Error())
+		}
+	}
+	if exec.InactiveStatus {
+		return nil, status.Error(codes.Unauthenticated, "user is inactive")
+	}
+	expiresAt, err := time.Parse(time.RFC3339, exec.GetPasswordTokenExpires())
+	if err != nil || time.Now().After(expiresAt) {
+		return nil, status.Error(codes.Unauthenticated, "invalid or expired reset link")
+	}
+	hashedPassword, err := utils.HashPassword(req.GetNewPassword())
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error hashing password").Error())
+	}
+	objectID, err := primitive.ObjectIDFromHex(exec.GetId())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "invalid user id")
+	}
+	_, err = mongodb.MongoClient.Database("sch-db").Collection("execs").UpdateOne(ctx, bson.M{"_id": objectID}, bson.M{"$set": bson.M{
+		"password":               hashedPassword,
+		"password_changed_at":    time.Now().Format(time.RFC3339),
+		"password_reset_token":   "",
+		"password_token_expires": "",
+	}})
+	if err != nil {
+		return nil, status.Error(codes.Internal, utils.HandleError(err, "error updating password").Error())
+	}
+	return &pb.Confirmation{Confirmation: true}, nil
 }

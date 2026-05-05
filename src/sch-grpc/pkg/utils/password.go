@@ -1,17 +1,21 @@
 package utils
 
 import (
-	"crypto/rand"
-	"crypto/subtle"
-	"errors"
-	"strings"
+	"golang.org/x/crypto/argon2"
 
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
-
-	"golang.org/x/crypto/argon2"
+	"strings"
 )
+
+// ErrInvalidPasswordResetToken is returned when the reset code from the client is not a 32-byte value encoded as hex (64 hex chars).
+var ErrInvalidPasswordResetToken = errors.New("invalid password reset token")
 
 func HashPassword(password string) (string, error) {
 	salt := make([]byte, 16)
@@ -47,4 +51,22 @@ func ComparePassword(hashedPassword, password string) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// PasswordResetTokenHashFromRaw returns the hex-encoded SHA-256 digest of tokenBytes, matching how ForgotPassword stores password_reset_token.
+func PasswordResetTokenHashFromRaw(tokenBytes []byte) string {
+	sum := sha256.Sum256(tokenBytes)
+	return hex.EncodeToString(sum[:])
+}
+
+// PasswordResetTokenHashFromPlain decodes resetCode as hex (64 chars = 32 bytes), hashes those bytes with SHA-256, and returns the hex digest for DB lookup.
+func PasswordResetTokenHashFromPlain(resetCode string) (string, error) {
+	tokenBytes, err := hex.DecodeString(resetCode)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrInvalidPasswordResetToken, err)
+	}
+	if len(tokenBytes) != 32 {
+		return "", ErrInvalidPasswordResetToken
+	}
+	return PasswordResetTokenHashFromRaw(tokenBytes), nil
 }
