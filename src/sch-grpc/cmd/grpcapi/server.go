@@ -86,8 +86,8 @@ func RunServer(port int) {
 
 	protovalidateInterceptor := protovalidatemw.UnaryServerInterceptor(validator)
 	rateLimiter := interceptors.NewRateLimiter(3, 5*time.Second)
-
-	grpcServer := grpc.NewServer(grpc.Creds(globalCreds), grpc.ChainUnaryInterceptor(interceptors.ResponseTimeInterceptor, rateLimiter.RateLimiterInterceptor, protovalidateInterceptor))
+	authenticationInterceptor := interceptors.AuthenticationInterceptor
+	grpcServer := grpc.NewServer(grpc.Creds(globalCreds), grpc.ChainUnaryInterceptor(interceptors.ResponseTimeInterceptor, rateLimiter.RateLimiterInterceptor, protovalidateInterceptor, authenticationInterceptor))
 	pb.RegisterTeachersServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterStudentsServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterExecsServiceServer(grpcServer, &handlers.Server{})
