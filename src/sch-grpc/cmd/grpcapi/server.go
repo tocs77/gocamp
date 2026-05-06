@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"buf.build/go/protovalidate"
 	protovalidatemw "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/protovalidate"
@@ -83,9 +84,10 @@ func RunServer(port int) {
 		utils.HandleError(err, "Failed to create validator")
 	}
 
-	interceptor := protovalidatemw.UnaryServerInterceptor(validator)
+	protovalidateInterceptor := protovalidatemw.UnaryServerInterceptor(validator)
+	rateLimiter := interceptors.NewRateLimiter(3, 5*time.Second)
 
-	grpcServer := grpc.NewServer(grpc.Creds(globalCreds), grpc.ChainUnaryInterceptor(interceptors.ResponseTimeInterceptor, interceptor))
+	grpcServer := grpc.NewServer(grpc.Creds(globalCreds), grpc.ChainUnaryInterceptor(interceptors.ResponseTimeInterceptor, rateLimiter.RateLimiterInterceptor, protovalidateInterceptor))
 	pb.RegisterTeachersServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterStudentsServiceServer(grpcServer, &handlers.Server{})
 	pb.RegisterExecsServiceServer(grpcServer, &handlers.Server{})
