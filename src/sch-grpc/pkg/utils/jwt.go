@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -56,4 +57,61 @@ func VerifyToken(token string) (jwt.MapClaims, error) {
 	}
 	fmt.Println("claims: ", claims)
 	return claims, nil
+}
+
+type JWTStore struct {
+	tokens map[string]time.Time
+	mu     sync.Mutex
+}
+
+func (js *JWTStore) AddToken(token string) {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	claims, err := VerifyToken(token)
+	if err != nil {
+		return
+	}
+	expiresAt := claims["exp"].(float64)
+	js.tokens[token] = time.Unix(int64(expiresAt), 0)
+}
+
+func (js *JWTStore) HasToken(token string) bool {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	_, ok := js.tokens[token]
+	return ok
+}
+
+func (js *JWTStore) DeleteToken(token string) {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	delete(js.tokens, token)
+}
+
+func (js *JWTStore) CleanUpExpiredTokens() {
+
+	for {
+		time.Sleep(1 * time.Minute)
+		js.mu.Lock()
+		for token, expiresAt := range js.tokens {
+			if time.Now().After(expiresAt) {
+				delete(js.tokens, token)
+			}
+		}
+		js.mu.Unlock()
+	}
+}
+
+func NewJWTStore() *JWTStore {
+	return &JWTStore{
+		tokens: make(map[string]time.Time),
+		mu:     sync.Mutex{},
+	}
+}
+
+var JWTStorage = NewJWTStore()
+
+func init() {
+	fmt.Println("Initializing JWTStorage")
+	go JWTStorage.CleanUpExpiredTokens()
 }

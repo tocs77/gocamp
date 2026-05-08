@@ -6,6 +6,7 @@ import (
 	"sch-grpc/pkg/utils"
 	"slices"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -32,12 +33,19 @@ func AuthenticationInterceptor(ctx context.Context, req any, info *grpc.UnarySer
 	if token == "" {
 		return nil, status.Errorf(codes.Unauthenticated, "token is not provided")
 	}
+	if !utils.JWTStorage.HasToken(token) {
+		return nil, status.Errorf(codes.Unauthenticated, "token is revoked")
+	}
 	claims, err := utils.VerifyToken(token)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "invalid token")
 	}
+	expiresAt := claims["exp"].(float64)
+	if expiresAt < float64(time.Now().Unix()) {
+		return nil, status.Errorf(codes.Unauthenticated, "token has expired")
+	}
 	newCtx := context.WithValue(ctx, "role", claims["role"].(string))
-	newCtx = context.WithValue(newCtx, "exp", claims["exp"].(float64))
+	newCtx = context.WithValue(newCtx, "exp", expiresAt)
 	newCtx = context.WithValue(newCtx, "username", claims["user"].(string))
 	newCtx = context.WithValue(newCtx, "userId", claims["uid"].(string))
 	return handler(newCtx, req)

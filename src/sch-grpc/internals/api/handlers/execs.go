@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"strings"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"sch-grpc/internals/models"
@@ -147,7 +150,7 @@ func (s *Server) Login(ctx context.Context, req *pb.ExecLoginRequest) (*pb.ExecL
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Internal server error")
 	}
-
+	utils.JWTStorage.AddToken(token)
 	return &pb.ExecLoginResponse{Status: true, Token: token}, nil
 }
 
@@ -309,4 +312,23 @@ func (s *Server) ResetPassword(ctx context.Context, req *pb.ResetPasswordRequest
 		return nil, status.Error(codes.Internal, utils.HandleError(err, "error updating password").Error())
 	}
 	return &pb.Confirmation{Confirmation: true}, nil
+}
+
+//* Logout
+
+func (s *Server) Logout(ctx context.Context, req *pb.EmptyRequest) (*pb.ExecLogoutResponse, error) {
+	metadata, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "metadata is not provided")
+	}
+	authHeader := metadata.Get("authorization")
+	if len(authHeader) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "authorization header is not provided")
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(authHeader[0], "Bearer "))
+	if token == "" {
+		return nil, status.Error(codes.Unauthenticated, "token is not provided")
+	}
+	utils.JWTStorage.DeleteToken(token)
+	return &pb.ExecLogoutResponse{LoggedOut: true}, nil
 }
